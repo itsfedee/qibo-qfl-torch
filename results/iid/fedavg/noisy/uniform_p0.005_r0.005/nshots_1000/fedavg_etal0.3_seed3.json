@@ -1,0 +1,204 @@
+{
+   "info": {
+      "strategy": "FedAvg",
+      "seed": 3,
+      "sampling_seed": 3,
+      "fraction_train": 0.75,
+      "fraction_evaluate": 0.75,
+      "local_epochs": 2,
+      "num_rounds": 10,
+      "num_clients": 5,
+      "eta_l": 0.3,
+      "iid": true,
+      "alpha": null,
+      "training_mode": "noisy",
+      "nshots": 1000,
+      "base_pauli": 0.005,
+      "base_readout": 0.005,
+      "noise_scale": 0.0
+   },
+   "rounds": [
+      {
+         "round": 0,
+         "train_metrics": {},
+         "eval_metrics_client": {},
+         "eval_metrics_server": {
+            "accuracy": 0.47999998927116394,
+            "loss": 0.7357013821601868,
+            "f1_score": 0.4164515767029514
+         }
+      },
+      {
+         "round": 1,
+         "train_metrics": {
+            "train_loss": 0.5403015621197529,
+            "train_acc": 0.8666666746139525,
+            "train_f1": 0.7757297646441679
+         },
+         "eval_metrics_client": {
+            "loss": 0.5060531298319498,
+            "accuracy": 0.8633333245913186,
+            "f1": 0.8018757645907566
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.8999999761581421,
+            "loss": 0.45268142223358154,
+            "f1_score": 0.8407389711737538
+         }
+      },
+      {
+         "round": 2,
+         "train_metrics": {
+            "train_loss": 0.4673580259848863,
+            "train_acc": 0.896666665871938,
+            "train_f1": 0.8401182943030558
+         },
+         "eval_metrics_client": {
+            "loss": 0.4672020574410756,
+            "accuracy": 0.8833333253860473,
+            "f1": 0.813416412611734
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.9300000071525574,
+            "loss": 0.3874608874320984,
+            "f1_score": 0.8729813101070586
+         }
+      },
+      {
+         "round": 3,
+         "train_metrics": {
+            "train_loss": 0.4601739408114017,
+            "train_acc": 0.9033333460489908,
+            "train_f1": 0.833829982079415
+         },
+         "eval_metrics_client": {
+            "loss": 0.4551655054092407,
+            "accuracy": 0.8999999960263569,
+            "f1": 0.8127353922434056
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.925000011920929,
+            "loss": 0.3760668933391571,
+            "f1_score": 0.8586971880740426
+         }
+      },
+      {
+         "round": 4,
+         "train_metrics": {
+            "train_loss": 0.4435823620894016,
+            "train_acc": 0.896666665871938,
+            "train_f1": 0.7888002120518081
+         },
+         "eval_metrics_client": {
+            "loss": 0.44826804598172504,
+            "accuracy": 0.9083333412806193,
+            "f1": 0.8293439752643745
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.925000011920929,
+            "loss": 0.3734983503818512,
+            "f1_score": 0.8586971880740426
+         }
+      },
+      {
+         "round": 5,
+         "train_metrics": {
+            "train_loss": 0.44025903176038683,
+            "train_acc": 0.896666665871938,
+            "train_f1": 0.7921580226861634
+         },
+         "eval_metrics_client": {
+            "loss": 0.4490610659122467,
+            "accuracy": 0.9066666762034098,
+            "f1": 0.8226853832718035
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.9200000166893005,
+            "loss": 0.3715607523918152,
+            "f1_score": 0.8472991028822294
+         }
+      },
+      {
+         "round": 6,
+         "train_metrics": {
+            "train_loss": 0.4412342607975006,
+            "train_acc": 0.9033333460489908,
+            "train_f1": 0.7919226614797246
+         },
+         "eval_metrics_client": {
+            "loss": 0.44955638051033014,
+            "accuracy": 0.893333335717519,
+            "f1": 0.802910507543986
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.9200000166893005,
+            "loss": 0.3710225820541382,
+            "f1_score": 0.8472991028822294
+         }
+      },
+      {
+         "round": 7,
+         "train_metrics": {
+            "train_loss": 0.45430810023576784,
+            "train_acc": 0.8733333349227905,
+            "train_f1": 0.7922544552897792
+         },
+         "eval_metrics_client": {
+            "loss": 0.45444592833518976,
+            "accuracy": 0.8866666555404662,
+            "f1": 0.7986413183618278
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.925000011920929,
+            "loss": 0.3713020980358124,
+            "f1_score": 0.8549252865225592
+         }
+      },
+      {
+         "round": 8,
+         "train_metrics": {
+            "train_loss": 0.4551102213370494,
+            "train_acc": 0.8799999952316283,
+            "train_f1": 0.7935841047492527
+         },
+         "eval_metrics_client": {
+            "loss": 0.4519527455170949,
+            "accuracy": 0.8983333309491475,
+            "f1": 0.8045887025132774
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.9200000166893005,
+            "loss": 0.3713759183883667,
+            "f1_score": 0.8431372549019607
+         }
+      },
+      {
+         "round": 9,
+         "train_metrics": {
+            "train_loss": 0.4416816845918313,
+            "train_acc": 0.8766666650772095,
+            "train_f1": 0.747747870872712
+         },
+         "eval_metrics_client": {
+            "loss": 0.4477108816305796,
+            "accuracy": 0.9116666714350382,
+            "f1": 0.8351837554208243
+         },
+         "eval_metrics_server": {
+            "accuracy": 0.9200000166893005,
+            "loss": 0.37173306941986084,
+            "f1_score": 0.8431372549019607
+         }
+      },
+      {
+         "round": 10,
+         "train_metrics": {},
+         "eval_metrics_client": {},
+         "eval_metrics_server": {
+            "accuracy": 0.9200000166893005,
+            "loss": 0.37173306941986084,
+            "f1_score": 0.8431372549019607
+         }
+      }
+   ]
+}

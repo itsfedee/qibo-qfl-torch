@@ -1,0 +1,29 @@
+{
+   "info": {
+      "strategy": "FedAvg",
+      "seed": 1,
+      "sampling_seed": 1,
+      "fraction_train": 0.75,
+      "fraction_evaluate": 0.75,
+      "local_epochs": 2,
+      "num_rounds": 10,
+      "num_clients": 5,
+      "eta_l": 0.3,
+      "iid": true,
+      "alpha": null,
+      "training_mode": "noiseless",
+      "nshots": 500
+   },
+   "rounds": [
+      {
+         "round": 0,
+         "train_metrics": {},
+         "eval_metrics_client": {},
+         "eval_metrics_server": {
+            "accuracy": 0.6150000095367432,
+            "loss": 0.6220965385437012,
+            "f1_score": 0.548002700243609
+         }
+      }
+   ]
+}
