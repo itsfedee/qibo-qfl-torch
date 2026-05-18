@@ -34,18 +34,18 @@ IS_MACOS = platform.system() == "Darwin"
 
 iid_strategies = {
     "FedAvg":     (None,  None,   "eta_l", 0.3,    [1, 2, 3, 4, 5, 6, 7]),
-    "FedProx":    ("mu",  0.03,   "eta_l", 0.3,    [1, 2, 3, 4, 5, 6, 7]),
-    "FedAdagrad": ("eta", 0.3,    "eta_l", 0.2,    [1, 2, 3, 4, 5, 6, 7]),
-    "FedAdam":    ("eta", 0.2,    "eta_l", 0.15,   [1, 2, 3, 4, 5, 6, 7]),
-    "FedYogi":    ("eta", 0.1,    "eta_l", 0.1,    [1, 2, 3, 4, 5, 6, 7]),
+  #  "FedProx":    ("mu",  0.03,   "eta_l", 0.3,    [1, 2, 3, 4, 5, 6, 7]),
+  #  "FedAdagrad": ("eta", 0.3,    "eta_l", 0.2,    [1, 2, 3, 4, 5, 6, 7]),
+ # "FedAdam":    ("eta", 0.2,    "eta_l", 0.15,   [1, 2, 3, 4, 5, 6, 7]),
+   # "FedYogi":    ("eta", 0.1,    "eta_l", 0.1,    [1, 2, 3, 4, 5, 6, 7]),
 }
 
 non_iid_strategies = {
-    "FedAvg":     (None,  None,   "eta_l", 0.35,   [1, 2, 3, 4, 5, 6, 7]),
-    "FedProx":    ("mu",  0.15,   "eta_l", 0.34,   [1, 2, 3, 4, 5, 6, 7]),
-    "FedAdagrad": ("eta", 0.39,   "eta_l", 0.09,   [1, 2, 3, 4, 5, 6, 7]),
-    "FedAdam":    ("eta", 0.2,    "eta_l", 0.06,   [1, 2, 3, 4, 5, 6, 7]),
-    "FedYogi":    ("eta", 0.2,    "eta_l", 0.25,   [1, 2, 3, 4, 5, 6, 7]),
+    "FedAvg":     (None,  None,   "eta_l", 0.3,   [1, 2, 3, 4, 5, 6, 7]),
+    "FedProx":    ("mu",  0.03,   "eta_l", 0.3,   [1, 2, 3, 4, 5, 6, 7]),
+    "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   [1, 2, 3, 4, 5, 6, 7]),
+    "FedAdam":    ("eta", 0.1,    "eta_l", 0.1,   [1, 2, 3, 4, 5, 6, 7]),
+    "FedYogi":    ("eta", 0.1,    "eta_l", 0.1,   [5]),
 }
 
 
@@ -136,8 +136,9 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
         f'base-pauli={job["base_pauli"]}',
         f'base-readout={job["base_readout"]}',
         f'scale={job["scale"]}',
-        f'nshots={job["nshots"]}',
+        f'nshots="{job["nshots"]}"' if isinstance(job["nshots"], str) else (f'nshots={job["nshots"]}' if job["nshots"] is not None else 'nshots="none"'),
         f'save-path="{job["save_path"]}"',
+  
     ]
     if job["srv_name"] is not None:
         parts.append(f'{job["srv_name"]}={job["srv_val"]}')
@@ -282,45 +283,21 @@ if __name__ == '__main__':
     print(f">>> Pool stagger max: {pool_stagger:.1f}s\n")
 
     # =================================================================
-    # Esperimenti da lanciare
+    # Esperimenti da lanciare: test delle altre strategie
     # =================================================================
 
+
     runs = [
-        # --- Noisy 0.005 ---
-        {"distribution": "iid", "mode": "noisy",
-         "base_pauli": 0.005, "base_readout": 0.005, "scale": 0.0,
-         "nshots": 1000,
-         "strategies": {k: iid_strategies[k] for k in strategies_to_use}},
-        {"distribution": "iid", "mode": "noisy",
-         "base_pauli": 0.005, "base_readout": 0.005, "scale": 0.002,
-         "nshots": 500,
-         "strategies": {k: iid_strategies[k] for k in strategies_to_use}},
-        {"distribution": "iid", "mode": "noisy",
-         "base_pauli": 0.005, "base_readout": 0.005, "scale": 0.002,
-         "nshots": 1000,
-         "strategies": {k: iid_strategies[k] for k in strategies_to_use}},
-        {"distribution": "iid", "mode": "noisy",
-         "base_pauli": 0.005, "base_readout": 0.005, "scale": 0.002,
-         "nshots": 5000,
-         "strategies": {k: iid_strategies[k] for k in strategies_to_use}},
-        # --- Mitigated ---
+
         {"distribution": "iid", "mode": "mitigated",
-         "base_pauli": 0.005, "base_readout": 0.005, "scale": 0.002,
+         "base_pauli": 0.01, "base_readout": 0.01, "scale": 0.002,
          "nshots": 1000,
-         "strategies": {k: iid_strategies[k] for k in strategies_to_use}},
-        {"distribution": "iid", "mode": "mitigated",
-         "base_pauli": 0.005, "base_readout": 0.005, "scale": 0.0,
-         "nshots": 1000,
-         "strategies": {k: iid_strategies[k] for k in strategies_to_use}},
+         "save_path_override": "fedavg_mitigation_test",
+         "strategies": {k: iid_strategies[k] for k in ["FedAvg"]}},
+ 
     ]
 
-    # Override per test rapido noiseless
-    runs = [
-        {"distribution": "iid", "mode": "noiseless",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": 1000,
-         "strategies": {k: iid_strategies[k] for k in ["FedAvg"]}},
-    ]
+
 
     # =================================================================
     # Costruzione lista jobs (flatten)
@@ -332,7 +309,7 @@ if __name__ == '__main__':
             run["base_pauli"], run["base_readout"], run["scale"]
         )
         for strategy, (srv_name, srv_val, cli_name, cli_val, seeds) in run["strategies"].items():
-            save_path = ExperimentPath.build(
+            save_path = run.get("save_path_override") or ExperimentPath.build(
                 distribution=run["distribution"],
                 strategy=strategy,
                 mode=run["mode"],

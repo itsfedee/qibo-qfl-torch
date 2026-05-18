@@ -29,8 +29,10 @@ def train(msg: Message, context: Context):
 
     partition_id = get_partition_id(msg, context)
 
+    model_type = context.run_config.get("model-type", "quantum")
+
     noise_model, mitigation_config, nshots = build_client_config(context.run_config, partition_id)
-    model = create_model(nshots=nshots, noise_model=noise_model, mitigation_config=mitigation_config)
+    model = create_model(model_type=model_type, nshots=nshots, noise_model=noise_model, mitigation_config=mitigation_config)
 
     ndarrays = msg.content["arrays"].to_numpy_ndarrays()
     set_weights(model, ndarrays)
@@ -86,9 +88,11 @@ def evaluate(msg: Message, context: Context):
 
     partition_id = get_partition_id(msg, context)
 
+    model_type = context.run_config.get("model-type", "quantum")
+
     noise_model, mitigation_config, nshots = build_client_config(context.run_config, partition_id)
-    model = create_model(nshots=nshots, noise_model=noise_model, mitigation_config=mitigation_config)
-    
+    model = create_model(model_type=model_type, nshots=nshots, noise_model=noise_model, mitigation_config=mitigation_config)
+
     ndarrays = msg.content["arrays"].to_numpy_ndarrays()
     set_weights(model, ndarrays)
 

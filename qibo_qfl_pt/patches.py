@@ -108,7 +108,8 @@ class _FixedQuantumModelAutoGrad(torch.autograd.Function):
         for g, p in zip(ctx.differentiation.circuit.parametrized_gates, ctx.all_angles):
             g.parameters = p
 
-        psr_result = ctx.differentiation.evaluate(ctx.angles, wrt_inputs=ctx.wrt_inputs)
+        angles_to_pass = ctx.all_angles if ctx.wrt_inputs else ctx.angles
+        psr_result = ctx.differentiation.evaluate(angles_to_pass, wrt_inputs=ctx.wrt_inputs)
         jacobian_wrt_angles = torch.as_tensor(
             backend.to_numpy(psr_result),
             dtype=jacobian.dtype,

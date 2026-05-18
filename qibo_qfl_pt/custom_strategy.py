@@ -13,7 +13,7 @@ class StrategyWithMetrics:
     
     def __init__(self, save_path: str = "results", suffix: str = "", run_info: dict | None = None,
                  sampling_seed: int = 42, training_mode: str = "federated", noise_info: dict | None = None,
-                 nshots=None, **kwargs):
+                 nshots=None, model_type: str = "quantum", **kwargs):
         super().__init__(**kwargs)
         self.training_mode = training_mode
         self.save_path = Path(save_path)
@@ -22,6 +22,7 @@ class StrategyWithMetrics:
         self.run_info = run_info or {}
         self.run_info["training_mode"] = training_mode
         self.run_info["nshots"] = nshots
+        self.run_info["model_type"] = model_type
         if noise_info:
             self.run_info.update(noise_info)
         self.sampling_seed = sampling_seed
@@ -41,6 +42,7 @@ class StrategyWithMetrics:
     
     def summary(self) -> None:
         """Log summary con training mode e iperparametri."""
+        log(INFO, "\t├──> Model type: %s", self.run_info.get("model_type", "quantum"))
         log(INFO, "\t├──> Training mode: %s", self.training_mode)
         log(INFO, "\t├──> Run info:")
         for key, val in self.run_info.items():

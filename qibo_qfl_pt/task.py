@@ -118,12 +118,12 @@ def build_client_config(run_config, partition_id):
                            [readout_prob, 1 - readout_prob]])
         response_matrix = np.kron(single, single)
         mitigation_config = {
-            "threshold": run_config.get("cdr-threshold", 0.1),
+            "threshold": run_config.get("cdr-threshold", 0.01),
             "min_iterations": run_config.get("cdr-min-iterations", 500),
             "method": "CDR",
             "method_kwargs": {
-                "n_training_samples": run_config.get("cdr-n-training-samples", 150),
-                "nshots": run_config.get("cdr-nshots", 40000),
+                "n_training_samples": run_config.get("cdr-n-training-samples", 120),
+                "nshots": run_config.get("cdr-nshots", 30000),
                 "seed": run_config.get("cdr-seed", 40),
                 "readout": {"response_matrix": response_matrix},
             },
@@ -134,7 +134,7 @@ def build_client_config(run_config, partition_id):
 # =====================================================================
 # Modello
 # =====================================================================
-
+"""
 class QMLModel(nn.Module):
     def __init__(self, q_model, hybrid=False):
         super().__init__()
@@ -158,10 +158,57 @@ class QMLModel(nn.Module):
         else:
             x = (x + 1) / 2
         return torch.clamp(x, 1e-7, 1 - 1e-7)
+"""
+HIDDEN_HYBRID = 6 # prima 3
+HIDDEN_CLASSICAL = 3
 
 
-def create_model(noise_model=None, nshots=None, mitigation_config=None, hybrid=False):
+class ClassicalModel(nn.Module):
+    def __init__(self, hidden=HIDDEN_CLASSICAL):
+        super().__init__()
+        self.hybrid = False
+        self.net = nn.Sequential(
+            nn.Linear(2, hidden, dtype=torch.float64),
+            nn.Tanh(),
+            nn.Linear(hidden, 1, dtype=torch.float64),
+            nn.Sigmoid(),
+        )
 
+    def forward(self, x):                           
+        return torch.clamp(self.net(x), 1e-7, 1 - 1e-7)
+
+
+class QMLModel(nn.Module):
+    """Versione post-MLP: quantum -> MLP -> output."""
+    def __init__(self, q_model, hybrid=False):
+        super().__init__()
+        self.q_model = q_model
+        self.hybrid = hybrid
+        if hybrid:
+            self.post_net = nn.Sequential(
+                nn.Linear(1, HIDDEN_HYBRID, dtype=torch.float64),
+                nn.Tanh(),
+                nn.Linear(HIDDEN_HYBRID, 1, dtype=torch.float64),
+                nn.Sigmoid(),
+            )
+
+    def forward(self, x):
+        x = torch.tanh(x) * torch.tensor(np.pi, dtype=torch.float64)
+        x = torch.stack([self.q_model(xi).reshape(-1) for xi in x])
+        if self.hybrid:
+            x = x.double()
+            x = self.post_net(x)
+        else:
+            x = (x + 1) / 2
+        return torch.clamp(x, 1e-7, 1 - 1e-7)
+
+
+def create_model(model_type="quantum", noise_model=None, nshots=None, mitigation_config=None):
+
+    if model_type == "classical":
+        return ClassicalModel(hidden=HIDDEN_CLASSICAL)
+
+    # quantum o hybrid
     encoding = PhaseEncoding(nqubits=NQUBITS)
     observable = SymbolicHamiltonian((Z(0) + Z(1)) / 2, nqubits=NQUBITS)
     decoding = Expectation(
@@ -183,6 +230,7 @@ def create_model(noise_model=None, nshots=None, mitigation_config=None, hybrid=F
         decoding=decoding,
         differentiation=PSR,
     )
+    hybrid = (model_type == "hybrid")
     return QMLModel(q_model, hybrid=hybrid)
 
 
@@ -216,10 +264,18 @@ def set_weights(model, weights):
 
 def train_model(model, x_train, y_train, epochs=5, lr=0.2, batch_size=16, verbose=True, partition_id=None,
                 global_weights=None, proximal_mu=0.0):
-    
 
     loss_fn = nn.BCELoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+
+    if model.hybrid:
+        param_groups = [
+            {"params": list(model.q_model.parameters()), "lr": lr},
+            {"params": list(model.post_net.parameters()), "lr": lr * 0.8},
+        ]
+    else:
+        param_groups = [{"params": list(model.parameters()), "lr": lr}]
+    optimizer = torch.optim.SGD(param_groups)
+
     history = {"loss": [], "accuracy": [], "f1": []}
 
     # Converti pesi globali in tensori (per FedProx)

@@ -46,10 +46,12 @@ def main(grid: Grid, context: Context) -> None:
     base_readout = context.run_config.get("base-readout", 0.0)
     noise_scale = context.run_config.get("scale", 0.0)
 
+    model_type = context.run_config.get("model-type", "quantum")
+
     set_seed(seed)
 
     # pesi iniziali
-    model = create_model()
+    model = create_model(model_type=model_type)
     arrays = ArrayRecord(get_weights(model))
     del model
 
@@ -86,7 +88,8 @@ def main(grid: Grid, context: Context) -> None:
         "eta_l": eta_l,
         "noise_info": noise_info,
         "nshots": nshots_info,
-        "training_mode": mode
+        "training_mode": mode,
+        "model_type": model_type,
     }
 
     if param_name is not None:
@@ -102,7 +105,7 @@ def main(grid: Grid, context: Context) -> None:
         """Evaluate on centralized validation or test set."""
         # con testing il seed è 40, con tuning è 41
         x_val, y_val = load_data_server(ndata=context.run_config["n-eval-data"], testing=testing)
-        model = create_model()
+        model = create_model(model_type=model_type)
         set_weights(model, arrays.to_numpy_ndarrays())
         loss, acc, f1 = evaluate_model(model, x_val, y_val)
         print(f"Server eval - Loss: {loss:.4f}, Accuracy: {acc:.4f}, F1: {f1:.4f}")
@@ -115,7 +118,7 @@ def main(grid: Grid, context: Context) -> None:
         grid=grid,
         initial_arrays=arrays,
         num_rounds=num_rounds,
-        evaluate_fn=lambda sr, arr: global_evaluate(sr, arr, testing=True),
+        evaluate_fn=lambda sr, arr: global_evaluate(sr, arr, testing=False),
     )
 
     # salvataggio pesi finali
