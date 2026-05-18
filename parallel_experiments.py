@@ -133,12 +133,13 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
         f'strategy="{job["strategy"]}"',
         f'seed={job["seed"]}',
         f'mode="{job["mode"]}"',
+        f'model-type="{job["model_type"]}"',
         f'base-pauli={job["base_pauli"]}',
         f'base-readout={job["base_readout"]}',
         f'scale={job["scale"]}',
         f'nshots="{job["nshots"]}"' if isinstance(job["nshots"], str) else (f'nshots={job["nshots"]}' if job["nshots"] is not None else 'nshots="none"'),
         f'save-path="{job["save_path"]}"',
-  
+
     ]
     if job["srv_name"] is not None:
         parts.append(f'{job["srv_name"]}={job["srv_val"]}')
@@ -287,14 +288,40 @@ if __name__ == '__main__':
     # =================================================================
 
 
-    runs = [
+    SEEDS = [1, 2, 3, 4, 5, 6, 7]
 
-        {"distribution": "iid", "mode": "mitigated",
-         "base_pauli": 0.01, "base_readout": 0.01, "scale": 0.002,
-         "nshots": 1000,
-         "save_path_override": "fedavg_mitigation_test",
-         "strategies": {k: iid_strategies[k] for k in ["FedAvg"]}},
- 
+    # Classical IID simulations
+    classical_iid = {
+        "FedAvg":     (None,  None,  "eta_l", 0.35,  SEEDS),
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+    }
+
+    # Hybrid IID simulations
+    hybrid_iid = {
+        "FedAvg":     (None,  None,  "eta_l", 0.15,  SEEDS),
+        "FedAdagrad": ("eta", 0.2,   "eta_l", 0.05,  SEEDS),
+        "FedAdam":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+        "FedProx":    ("mu",  0.1,   "eta_l", 0.1,   SEEDS),
+        "FedYogi":    ("eta", 0.1,   "eta_l", 0.01,  SEEDS),
+    }
+
+    runs = [
+        {"distribution": "iid", "mode": "noiseless",
+         "model_type": "classical",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "classical_strategies_comparison/iid/noiseless/simulations/simulation_experiments",
+         "strategies": classical_iid},
+
+        {"distribution": "iid", "mode": "noiseless",
+         "model_type": "hybrid",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "hybrid_strategies_comparison/iid/noiseless/simulations/simulation_experiments",
+         "strategies": hybrid_iid},
     ]
 
 
@@ -321,6 +348,7 @@ if __name__ == '__main__':
                     "strategy": strategy,
                     "seed": seed,
                     "mode": run["mode"],
+                    "model_type": run.get("model_type", "quantum"),
                     "base_pauli": run["base_pauli"],
                     "base_readout": run["base_readout"],
                     "scale": run["scale"],
