@@ -332,7 +332,7 @@ if __name__ == '__main__':
 
     # Classical 3H
     classical_iid_3h = {
-        "FedAvg":     (None,  None,  "eta_l", 0.4,   SEEDS),
+        "FedAvg":     (None,  None,  "eta_l", 0.35,   SEEDS),
         "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
         "FedAdam":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
         "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
@@ -365,7 +365,7 @@ if __name__ == '__main__':
          "model_type": "quantum",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "strategy_comparison/quantum/3_layers/iid/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison_fixed_training/quantum/3_layers/iid/simulations/simulation_experiments",
          "strategies": quantum_iid},
 
         # Quantum 3L - Non-IID
@@ -373,7 +373,7 @@ if __name__ == '__main__':
          "model_type": "quantum",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "strategy_comparison/quantum/3_layers/non_iid/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison_fixed_training/quantum/3_layers/non_iid/simulations/simulation_experiments",
          "strategies": quantum_non_iid},
 
         # Hybrid 3L 6H - IID
@@ -381,7 +381,7 @@ if __name__ == '__main__':
          "model_type": "hybrid",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "strategy_comparison/hybrid/3L_6hidden/iid/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison_fixed_training/hybrid/3L_6hidden/iid/simulations/simulation_experiments",
          "strategies": hybrid_iid},
 
         # Hybrid 3L 6H - Non-IID
@@ -389,23 +389,16 @@ if __name__ == '__main__':
          "model_type": "hybrid",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "strategy_comparison/hybrid/3L_6hidden/non_iid/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison_fixed_training/hybrid/3L_6hidden/non_iid/simulations/simulation_experiments",
          "strategies": hybrid_non_iid},
 
-        # Classical 3H - IID
-        {"distribution": "iid", "mode": "noiseless",
-         "model_type": "classical",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison/classical/3_hidden/iid/simulations/simulation_experiments",
-         "strategies": classical_iid_3h},
 
         # Classical 9H - IID
         {"distribution": "iid", "mode": "noiseless",
          "model_type": "classical",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "strategy_comparison/classical/9_hidden/iid/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison_fixed_training/classical/9_hidden/iid/simulations/simulation_experiments",
          "strategies": classical_iid_9h},
 
         # Classical 9H - Non-IID
@@ -413,7 +406,7 @@ if __name__ == '__main__':
          "model_type": "classical",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "strategy_comparison/classical/9_hidden/non_iid/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison_fixed_training/classical/9_hidden/non_iid/simulations/simulation_experiments",
          "strategies": classical_non_iid_9h},
     ]
 
