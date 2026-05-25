@@ -34,6 +34,8 @@ def main(grid: Grid, context: Context) -> None:
     fraction_evaluate = context.run_config["fraction-evaluate"]
     local_epochs = context.run_config["local-epochs"]
     seed = context.run_config["seed"]
+    init_seed = int(context.run_config.get("init-seed", seed))
+    data_seed = int(context.run_config.get("data-seed", seed))
     alpha = context.run_config["alpha"]
 
     mode = context.run_config.get("mode", "noiseless")
@@ -48,7 +50,7 @@ def main(grid: Grid, context: Context) -> None:
 
     model_type = context.run_config.get("model-type", "quantum")
 
-    set_seed(seed)
+    set_seed(init_seed)
 
     # pesi iniziali
     model = create_model(model_type=model_type)
@@ -80,6 +82,10 @@ def main(grid: Grid, context: Context) -> None:
         "fraction_evaluate": fraction_evaluate,
         "local_epochs": local_epochs,
         "seed": seed,
+        "init_seed": init_seed,
+        "data_seed": data_seed,
+        "sampling_seed": int(context.run_config.get("sampling-seed", seed)),
+        "run_id": context.run_config.get("run-id", None),
         "save_path": save_path,
         "num_rounds": num_rounds,
         "num_clients": num_clients,
@@ -118,7 +124,7 @@ def main(grid: Grid, context: Context) -> None:
         grid=grid,
         initial_arrays=arrays,
         num_rounds=num_rounds,
-        evaluate_fn=lambda sr, arr: global_evaluate(sr, arr, testing=False),
+        evaluate_fn=lambda sr, arr: global_evaluate(sr, arr, testing=True),
     )
 
     # salvataggio pesi finali
@@ -132,7 +138,8 @@ def main(grid: Grid, context: Context) -> None:
 
         weights_dir = str(Path(save_path) / "weights")
         os.makedirs(weights_dir, exist_ok=True)
-        filename = f"{strategy_name}{param_str}_etal{eta_l}_seed{seed}.npz"
+        seed_label = f"seed{seed}"
+        filename = f"{strategy_name}{param_str}_etal{eta_l}_{seed_label}.npz"
         np.savez(os.path.join(weights_dir, filename), *result.arrays.to_numpy_ndarrays())
 
     gc.collect()

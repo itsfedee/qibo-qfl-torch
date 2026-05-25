@@ -26,7 +26,7 @@ serverapp = "qibo_qfl_pt.server_app:app"
 clientapp = "qibo_qfl_pt.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 20
+num-server-rounds = 10
 iid = true
 num-clients = 5
 batch-size = 8
@@ -46,16 +46,21 @@ base-readout = 0.005
 scale = 0.002
 
 alpha = 1.8
+
 seed=2
+data-seed=2
+init-seed=2
+sampling-seed=2
 
 strategy = "FedAvg"
 eta = 0.1
 eta_l = 0.35
 mu = 0.05
-model-type = "classical"
+model-type = "quantum"
 nshots = "none"
 save-path = "fedavg_test"
 save-weights = true
+run-id = 0
 
 
 #######################################################################
@@ -153,14 +158,94 @@ save-weights = true
 # Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
 #######################################################################
 
-#   [tool.flwr.federations]
-#     default = "local-simulation"
 
-#   [tool.flwr.federations.local-simulation]
-#    options.num-supernodes = 5
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
 
 
-# # # # # # # # [tool.flwr.federations.local-simulation-gpu]
-# # # # # # # # options.num-supernodes = 5
-# # # # # # # # options.backend.client-resources.num-cpus = 2
-# # # # # # # # options.backend.client-resources.num-gpus = 0.2
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+#        [tool.flwr.federations]
+#         default = "local-simulation"
+
+#       [tool.flwr.federations.local-simulation]
+#         options.num-supernodes = 5
+
+
+# # # # # # # # # # # # # [tool.flwr.federations.local-simulation-gpu]
+# # # # # # # # # # # # # options.num-supernodes = 5
+# # # # # # # # # # # # # options.backend.client-resources.num-cpus = 2
+# # # # # # # # # # # # # options.backend.client-resources.num-gpus = 0.2

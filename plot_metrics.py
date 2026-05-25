@@ -47,12 +47,12 @@ def _read_folder(folder, source="eval_metrics_client", save_json=False, seeds=No
             print(f"  No files matching seeds={seeds} in {folder}/")
             return {}
 
-    # raggruppa per config (togliendo _seedN.json)
+    # raggruppa per config (togliendo _seed/_dataseed/_initseed/_samplingseed + N.json)
+    import re
     groups = defaultdict(list)
     for f in files:
         name = os.path.basename(f)
-        parts = name.rsplit("_seed", 1)
-        key = parts[0] if len(parts) == 2 else name.replace(".json", "")
+        key = re.sub(r"_((?:data|init|sampling)?seed|run)\d+\.json$", "", name)
         groups[key].append(f)
 
     results = {}
@@ -585,6 +585,74 @@ def plot_centralized_weight_distances(base_dir, noise_levels, seeds=range(1, 8),
 
 # =====================================================================
 
+def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, weights_path=None,
+                       n_training_samples=120, nshots_cdr=30000, cdr_seed=40,
+                       nshots_model=1000, save_path=None, title=None):
+    """Scatterplot dei training points CDR (noisy vs noise-free) con retta di regressione."""
+    from qibo_qfl_pt.task import create_model, build_noise_model, set_weights
+
+    noise_model, readout_prob = build_noise_model(
+        pauli_base=pauli_base, readout_base=readout_base, partition_id=0, scale=scale,
+    )
+    single = np.array([[1 - readout_prob, readout_prob],
+                        [readout_prob, 1 - readout_prob]])
+    response_matrix = np.kron(single, single)
+    mitigation_config = {
+        "threshold": 0.01, "min_iterations": 500, "method": "CDR",
+        "method_kwargs": {
+            "n_training_samples": n_training_samples,
+            "nshots": nshots_cdr, "seed": cdr_seed,
+            "readout": {"response_matrix": response_matrix},
+        },
+    }
+
+    model = create_model(model_type="quantum", nshots=nshots_model,
+                          noise_model=noise_model, mitigation_config=mitigation_config)
+    if weights_path is not None:
+        w = list(np.load(weights_path).values())
+        set_weights(model, w)
+
+    # Forward pass per triggerare la calibrazione CDR
+    import torch
+    x = torch.tensor([[0.5, 0.3]], dtype=torch.float64)
+    with torch.no_grad():
+        model(x)
+
+    # Estrai training data e parametri del fit
+    mitigator = model.q_model.decoding.mitigator
+    train_data = mitigator._training_data
+    popt = mitigator._mitigation_map_popt
+
+    noisy = np.array(train_data["noisy"])
+    noisefree = np.array(train_data["noise-free"])
+    a, b = float(popt[0]), float(popt[1])
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(7, 6))
+    ax.scatter(noisy, noisefree, color="blue", alpha=0.5, s=20, label="Training points")
+
+    x_fit = np.linspace(noisy.min(), noisy.max(), 100)
+    ax.plot(x_fit, a * x_fit + b, color="red", linewidth=2,
+            label=f"Fit: y = {a:.3f}x + {b:.3f}")
+
+    ax.set_xlabel("Noisy expectation value", fontsize=14)
+    ax.set_ylabel("Noise-free expectation value", fontsize=14)
+    if title is None:
+        title = f"CDR noise map (p={pauli_base})"
+    ax.set_title(title, fontsize=16, fontweight="bold")
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        print(f"Plot saved to {save_path}")
+    plt.show()
+
+    return noisy, noisefree, a, b
+
+
 def weight_distance(theta_a, theta_b, mode="2pi"):
     """Distanza tra due vettori di pesi.
 
@@ -706,6 +774,101 @@ def plot_weight_distances(base_dir, noise_levels, etal="0.3", seeds=range(1, 3),
         print(f"Plot saved to {save_path}")
     plt.show()
 
+def _read_drift(folder, drift_key="drift_median", seeds=None):
+    """Legge il drift dai JSON, raggruppa per config, calcola mediana+MAD tra seed."""
+    files = glob.glob(f"{folder}/*.json")
+    if not files:
+        print(f"  No files found in {folder}/")
+        return {}
+
+    if seeds is not None:
+        seed_strs = {f"_seed{s}.json" for s in seeds}
+        files = [f for f in files if any(f.endswith(s) for s in seed_strs)]
+
+    import re
+    groups = defaultdict(list)
+    for f in files:
+        name = os.path.basename(f)
+        key = re.sub(r"_((?:data|init|sampling)?seed|run)\d+\.json$", "", name)
+        groups[key].append(f)
+
+    results = {}
+    for key, file_list in groups.items():
+        merged = defaultdict(list)
+        for filename in file_list:
+            with open(filename) as f:
+                data = json.load(f)
+            for entry in data["rounds"]:
+                dm = entry.get("drift_metrics")
+                if dm and dm.get(drift_key) is not None:
+                    merged[entry["round"]].append(dm[drift_key])
+
+        rounds = sorted(merged.keys())
+        if not rounds:
+            continue
+        arr_per_round = [np.array(merged[r]) for r in rounds]
+        results[key] = {
+            "rounds": rounds,
+            "n_seeds": len(file_list),
+            "drift_median": [float(np.median(a)) for a in arr_per_round],
+            "drift_mad": [float(median_abs_deviation(a)) for a in arr_per_round],
+        }
+        print(f"  {key}: {len(file_list)} seeds (drift)")
+
+    return results
+
+
+def plot_drift(scenarios, save_path=None, drift_key="drift_median", title=None, seeds=None, xlim=None):
+    """Plotta il drift mediano (con MAD) per più scenari.
+
+    scenarios: dict {label: cartella} oppure dict {label: data_dict}
+    """
+    all_data = {}
+    for label, val in scenarios.items():
+        if isinstance(val, str):
+            folder_data = _read_drift(val, drift_key=drift_key, seeds=seeds)
+            if len(folder_data) == 1:
+                all_data[label] = list(folder_data.values())[0]
+            else:
+                for key, data in folder_data.items():
+                    all_data[f"{label} - {key}" if label and len(folder_data) > 1 else key] = data
+        else:
+            all_data[label] = val
+
+    if not all_data:
+        print("No drift data to plot.")
+        return
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    for idx, (label, data) in enumerate(all_data.items()):
+        color = COLORS[idx % len(COLORS)]
+        vals = data["drift_median"]
+        mads = data["drift_mad"]
+        ax.plot(data["rounds"], vals, color=color, label=label, linewidth=2)
+        if any(m > 0 for m in mads):
+            ax.fill_between(
+                data["rounds"],
+                [v - m for v, m in zip(vals, mads)],
+                [v + m for v, m in zip(vals, mads)],
+                color=color, alpha=0.3,
+            )
+
+    ax.set_xlabel("Round", fontsize=14)
+    ax.set_ylabel("Client drift (L2)", fontsize=14)
+    ax.set_title(title or "Client drift", fontsize=16, fontweight="bold")
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    plt.tight_layout()
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        print(f"Plot saved to {save_path}")
+    plt.show()
+
+
 def plot_comparison(distribution="iid", with_centralized=True):
     # Confronto strategie federate + centralizzato (non-IID)
     sim_folder = f"strategies_comparison/{distribution}/noiseless/simulations/simulation_experiments"
@@ -741,8 +904,19 @@ def plot_comparison(distribution="iid", with_centralized=True):
 
 if __name__ == "__main__":
 
-    plot_tuning(
-        folder="fedavg_tuning_test/hybrid",
-        save_dir="fedavg_tuning_test/hybrid/hybrid_plot.pdf",
-        metrics=("loss", "accuracy", "f1"),
-    )
+  
+
+  # Classical Yogi test
+  scenarios={
+      "standard": "results/federated/iid/fedavg/noiseless/uniform_p0.0_r0.0/nshots_1000",
+      "fixed training set": "fedavg_tests/fedavg_fixed_data/nshots_1000",
+   
+  }
+  plot(
+      scenarios=scenarios,
+      save_path="fedavg_tests/fedavg_fixed_data/fixed_data_comparison.png",
+      source="eval_metrics_server",
+      metrics=("loss",),
+      title="Fixed training set vs standard",
+      save_json=True
+  )

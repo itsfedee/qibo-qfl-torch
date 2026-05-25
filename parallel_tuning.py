@@ -39,11 +39,26 @@ grid_lr = [
 ]
 
 configs = {
-    "FedAvg":     [(None, "eta_l", v) for v in [0.2]],
-  #  "FedAdagrad": [("eta", s, "eta_l", c) for s, c in grid_lr],
-  #  "FedAdam":    [("eta", s, "eta_l", c) for s, c in grid_lr],
-  #  "FedYogi":    [("eta", s, "eta_l", c) for s, c in grid_lr],
-  #  "FedProx":    [("mu",  s, "eta_l", c) for s, c in grid_lr],
+    "FedAvg":     [(None, "eta_l", v) for v in [0.3]],
+    "FedAdagrad": [("eta", s, "eta_l", c) for s, c in grid_lr],
+    "FedAdam":    [("eta", s, "eta_l", c) for s, c in grid_lr],
+    "FedYogi":    [("eta", s, "eta_l", c) for s, c in grid_lr],
+    "FedProx":    [("mu",  s, "eta_l", c) for s, c in grid_lr],
+}
+# nuvoa grid per tuning veloce di quantum 6L e classical 3h
+grid_lr_short = [
+    (0.1, 0.1),   
+    (0.2, 0.15),   
+    (0.3, 0.2),  
+    (0.03, 0.3),   
+]
+
+configs = {
+    "FedAvg":     [(None, "eta_l", v) for v in [0.1, 0.2, 0.3, 0.4]],
+    "FedAdagrad": [("eta", s, "eta_l", c) for s, c in grid_lr_short],
+    "FedAdam":    [("eta", s, "eta_l", c) for s, c in grid_lr_short],
+    "FedYogi":    [("eta", s, "eta_l", c) for s, c in grid_lr_short],
+    "FedProx":    [("mu",  s, "eta_l", c) for s, c in grid_lr_short],
 }
 
 
@@ -255,7 +270,9 @@ if __name__ == '__main__':
     for mt in args.model_type:
         model_dir = f"{mt}_strategies_comparison" if mt != "quantum" else "strategy_comparison/quantum"
         save_path = f"{model_dir}/{args.distribution}/noiseless/tuning/tuning_experiments"
-        save_path = f"fedavg_tuning_test/{mt}"
+        if mt == "quantum": save_path = f"quantum_strategies_comparison/{args.distribution}/noiseless/tuning_6L/tuning_experiments"
+        if mt == "classical": save_path = f"classical_strategies_comparison/{args.distribution}/noiseless/tuning_3h/tuning_experiments"
+
         print(f">>> [{mt}] Save path: {save_path}")
 
         for strategy in strategies_to_use:

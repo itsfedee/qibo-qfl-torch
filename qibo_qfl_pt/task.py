@@ -159,8 +159,8 @@ class QMLModel(nn.Module):
             x = (x + 1) / 2
         return torch.clamp(x, 1e-7, 1 - 1e-7)
 """
-HIDDEN_HYBRID = 6 # prima 3
-HIDDEN_CLASSICAL = 3
+HIDDEN_HYBRID = 6
+HIDDEN_CLASSICAL = 9 
 
 
 class ClassicalModel(nn.Module):

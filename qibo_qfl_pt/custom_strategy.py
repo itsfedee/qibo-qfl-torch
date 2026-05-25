@@ -236,6 +236,25 @@ class StrategyWithMetrics:
             train_replies = grid.send_and_receive(messages=train_messages, timeout=timeout)
             
             agg_arrays, agg_train_metrics = self.aggregate_train(self.current_round, train_replies)
+            
+            # Estrai drift per-client dalle risposte
+            client_drifts = []
+            for reply in train_replies:
+                m = reply.content.get("metrics", {})
+                if "drift" in m:
+                    client_drifts.append(float(m["drift"]))
+            
+            if client_drifts:
+                import numpy as _np
+                self._last_drift_metrics = {
+                    "drift_median": float(_np.median(client_drifts)),
+                    "drift_mean": float(_np.mean(client_drifts)),
+                    "drift_max": float(_np.max(client_drifts)),
+                    "drift_min": float(_np.min(client_drifts)),
+                    "drift_per_client": client_drifts,
+                }
+            else:
+                self._last_drift_metrics = None
             if agg_arrays is not None:
                 arrays = agg_arrays
                 result.arrays = agg_arrays
@@ -282,6 +301,11 @@ class StrategyWithMetrics:
             "eval_metrics_server": dict(result.evaluate_metrics_serverapp.get(current_round, {})),
         }
         
+        # Aggiungi drift metrics se disponibili
+        if hasattr(self, "_last_drift_metrics") and self._last_drift_metrics is not None:
+            round_data["drift_metrics"] = self._last_drift_metrics
+            self._last_drift_metrics = None
+        
         self.metrics_history.append(round_data)
         
         with open(self.metrics_filename, "r+") as f:
@@ -295,11 +319,13 @@ class StrategyWithMetrics:
 class fedavg(StrategyWithMetrics, FedAvg):
     """FedAvg con salvataggio e stampa delle metriche."""
     def __init__(self, seed, num_rounds, num_clients, local_epochs, iid, alpha,
-                 eta_l=None, sampling_seed=None, **kwargs):
+                 eta_l=None, sampling_seed=None, init_seed=None, data_seed=None, run_id=None, **kwargs):
         run_info = {
             "strategy": "FedAvg",
             "seed": seed,
+            "init_seed": init_seed if init_seed is not None else seed,
             "sampling_seed": sampling_seed if sampling_seed is not None else seed,
+            "data_seed": data_seed if data_seed is not None else seed,
             "fraction_train": kwargs.get("fraction_train", 1.0),
             "fraction_evaluate": kwargs.get("fraction_evaluate", 1.0),
             "local_epochs": local_epochs,
@@ -309,7 +335,8 @@ class fedavg(StrategyWithMetrics, FedAvg):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        suffix = f"_etal{eta_l}_seed{seed}"
+        seed_label = f"seed{seed}"
+        suffix = f"_etal{eta_l}_{seed_label}"
         super().__init__(
             suffix=suffix,
             run_info=run_info,
@@ -321,7 +348,7 @@ class fedavg(StrategyWithMetrics, FedAvg):
 class fedadam(StrategyWithMetrics, FedAdam):
     """FedAdam con salvataggio e stampa delle metriche."""
     def __init__(self, seed, eta, eta_l, num_rounds, num_clients, local_epochs, iid, alpha,
-                 sampling_seed=None, **kwargs):
+                 sampling_seed=None, run_id=None, **kwargs):
         run_info = {
             "strategy": "FedAdam",
             "seed": seed,
@@ -336,7 +363,8 @@ class fedadam(StrategyWithMetrics, FedAdam):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        suffix = f"_eta{eta}_etal{eta_l}_seed{seed}"
+        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        suffix = f"_eta{eta}_etal{eta_l}_{seed_label}"
         super().__init__(
             eta=eta,
             eta_l=eta_l,
@@ -349,7 +377,7 @@ class fedadam(StrategyWithMetrics, FedAdam):
 
 class fedadagrad(StrategyWithMetrics, FedAdagrad):
     def __init__(self, seed, eta, eta_l, num_rounds, num_clients, local_epochs, iid, alpha,
-                 sampling_seed=None, **kwargs):
+                 sampling_seed=None, run_id=None, **kwargs):
         run_info = {
             "strategy": "FedAdagrad",
             "seed": seed,
@@ -362,7 +390,8 @@ class fedadagrad(StrategyWithMetrics, FedAdagrad):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        suffix = f"_eta{eta}_etal{eta_l}_seed{seed}"
+        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        suffix = f"_eta{eta}_etal{eta_l}_{seed_label}"
         super().__init__(
             eta=eta,
             eta_l=eta_l,
@@ -375,7 +404,7 @@ class fedadagrad(StrategyWithMetrics, FedAdagrad):
 
 class fedyogi(StrategyWithMetrics, FedYogi):
     def __init__(self, seed, eta, eta_l, num_rounds, num_clients, local_epochs, iid, alpha,
-                 sampling_seed=None, **kwargs):
+                 sampling_seed=None, run_id=None, **kwargs):
         run_info = {
             "strategy": "FedYogi",
             "seed": seed,
@@ -388,7 +417,8 @@ class fedyogi(StrategyWithMetrics, FedYogi):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        suffix = f"_eta{eta}_etal{eta_l}_seed{seed}"
+        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        suffix = f"_eta{eta}_etal{eta_l}_{seed_label}"
         super().__init__(
             eta=eta,
             eta_l=eta_l,
@@ -402,8 +432,9 @@ class fedyogi(StrategyWithMetrics, FedYogi):
 class fedprox(StrategyWithMetrics, FedProx):
     """FedProx con salvataggio e stampa delle metriche."""
     def __init__(self, seed, mu, num_rounds, num_clients, iid, alpha, local_epochs,
-                 eta_l=None, sampling_seed=None, **kwargs):
-        suffix = f"_mu{mu}_etal{eta_l}_seed{seed}"
+                 eta_l=None, sampling_seed=None, run_id=None, **kwargs):
+        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        suffix = f"_mu{mu}_etal{eta_l}_{seed_label}"
         run_info = {
             "strategy": "FedProx",
             "seed": seed,

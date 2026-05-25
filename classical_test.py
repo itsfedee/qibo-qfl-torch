@@ -18,10 +18,10 @@ torch.set_default_dtype(torch.float64)
 # CONFIG -- modifica solo qui
 # =====================================================================
 
-MODEL_TYPE = "hybrid"    # "classical", "quantum", "hybrid"
+MODEL_TYPE = "classical"    # "classical", "quantum", "hybrid"
 
 # Comuni
-SEED = 130
+SEED = 71
 EPOCHS = 30
 BATCH_SIZE = 8
 N_TRAIN = 500
@@ -70,7 +70,7 @@ print(f"Test:  {N_TEST} pts, positive fraction: {y_test.mean():.3f}\n")
 # =====================================================================
 
 class ClassicalModel(nn.Module):
-    def __init__(self, hidden=3):
+    def __init__(self, hidden=HIDDEN):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(2, hidden, dtype=torch.float64),

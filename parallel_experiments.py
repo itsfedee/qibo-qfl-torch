@@ -129,9 +129,13 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
     if stagger_max > 0:
         time.sleep(random.uniform(0, stagger_max))
 
+    seed = job["seed"]
     parts = [
         f'strategy="{job["strategy"]}"',
-        f'seed={job["seed"]}',
+        f'seed={seed}',
+        f'data-seed=2',
+        f'init-seed={seed}',
+        f'sampling-seed={seed}',
         f'mode="{job["mode"]}"',
         f'model-type="{job["model_type"]}"',
         f'base-pauli={job["base_pauli"]}',
@@ -162,11 +166,11 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
     env['PYTHONUNBUFFERED'] = '1'
 
     # RAY_TMPDIR univoco per non incrociare i Ray work dirs fra job.
-    ray_tmp = tempfile.mkdtemp(prefix=f"ray_{job['strategy']}_seed{job['seed']}_")
+    ray_tmp = tempfile.mkdtemp(prefix=f"ray_{job['strategy']}_seed{seed}_")
     env['RAY_TMPDIR'] = ray_tmp
 
     job_label = (
-        f"{job['strategy']} seed={job['seed']} {job['mode']} "
+        f"{job['strategy']} seed={seed} {job['mode']} "
         f"{job['noise_label']} nshots={job['nshots']}"
     )
     start_time = time.time()
@@ -187,7 +191,7 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
     if not IS_WINDOWS:
         popen_kwargs["start_new_session"] = True
 
-    tag = f"[{job['strategy']} s{job['seed']}]"
+    tag = f"[{job['strategy']} s{seed}]"
     proc = None
     try:
         try:
@@ -290,16 +294,27 @@ if __name__ == '__main__':
 
     SEEDS = [1, 2, 3, 4, 5, 6, 7]
 
-    # Classical IID simulations
-    classical_iid = {
-        "FedAvg":     (None,  None,  "eta_l", 0.35,  SEEDS),
+    # -----------------------------------------------------------------
+    # Strategie per modello e distribuzione
+    # -----------------------------------------------------------------
+
+    # Quantum 3L
+    quantum_iid = {
+        "FedAvg":     (None,  None,  "eta_l", 0.3,   SEEDS),
         "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
-        "FedAdam":    ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
         "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
-        "FedYogi":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+        "FedYogi":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+    }
+    quantum_non_iid = {
+        "FedAvg":     (None,  None,  "eta_l", 0.3,   SEEDS),
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
     }
 
-    # Hybrid IID simulations
+    # Hybrid 3L 6H
     hybrid_iid = {
         "FedAvg":     (None,  None,  "eta_l", 0.15,  SEEDS),
         "FedAdagrad": ("eta", 0.2,   "eta_l", 0.05,  SEEDS),
@@ -307,21 +322,99 @@ if __name__ == '__main__':
         "FedProx":    ("mu",  0.1,   "eta_l", 0.1,   SEEDS),
         "FedYogi":    ("eta", 0.1,   "eta_l", 0.01,  SEEDS),
     }
+    hybrid_non_iid = {
+        "FedAvg":     (None,  None,  "eta_l", 0.25,  SEEDS),
+        "FedAdagrad": ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+        "FedAdam":    ("eta", 0.2,   "eta_l", 0.05,  SEEDS),
+        "FedProx":    ("mu",  0.01,  "eta_l", 0.15,  SEEDS),
+        "FedYogi":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+    }
+
+    # Classical 3H
+    classical_iid_3h = {
+        "FedAvg":     (None,  None,  "eta_l", 0.4,   SEEDS),
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+    }
+
+    # Classical 9H
+    classical_iid_9h = {
+        "FedAvg":     (None,  None,  "eta_l", 0.35,  SEEDS),
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+    }
+    classical_non_iid_9h = {
+        "FedAvg":     (None,  None,  "eta_l", 0.35,  SEEDS),
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.2,   "eta_l", 0.01,  SEEDS),
+    }
+
+    # -----------------------------------------------------------------
+    # Runs
+    # -----------------------------------------------------------------
 
     runs = [
+        # Quantum 3L - IID
         {"distribution": "iid", "mode": "noiseless",
-         "model_type": "classical",
+         "model_type": "quantum",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "classical_strategies_comparison/iid/noiseless/simulations/simulation_experiments",
-         "strategies": classical_iid},
+         "save_path_override": "strategy_comparison/quantum/3_layers/iid/simulations/simulation_experiments",
+         "strategies": quantum_iid},
 
+        # Quantum 3L - Non-IID
+        {"distribution": "non_iid", "mode": "noiseless",
+         "model_type": "quantum",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "strategy_comparison/quantum/3_layers/non_iid/simulations/simulation_experiments",
+         "strategies": quantum_non_iid},
+
+        # Hybrid 3L 6H - IID
         {"distribution": "iid", "mode": "noiseless",
          "model_type": "hybrid",
          "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
          "nshots": "none",
-         "save_path_override": "hybrid_strategies_comparison/iid/noiseless/simulations/simulation_experiments",
+         "save_path_override": "strategy_comparison/hybrid/3L_6hidden/iid/simulations/simulation_experiments",
          "strategies": hybrid_iid},
+
+        # Hybrid 3L 6H - Non-IID
+        {"distribution": "non_iid", "mode": "noiseless",
+         "model_type": "hybrid",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "strategy_comparison/hybrid/3L_6hidden/non_iid/simulations/simulation_experiments",
+         "strategies": hybrid_non_iid},
+
+        # Classical 3H - IID
+        {"distribution": "iid", "mode": "noiseless",
+         "model_type": "classical",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "strategy_comparison/classical/3_hidden/iid/simulations/simulation_experiments",
+         "strategies": classical_iid_3h},
+
+        # Classical 9H - IID
+        {"distribution": "iid", "mode": "noiseless",
+         "model_type": "classical",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "strategy_comparison/classical/9_hidden/iid/simulations/simulation_experiments",
+         "strategies": classical_iid_9h},
+
+        # Classical 9H - Non-IID
+        {"distribution": "non_iid", "mode": "noiseless",
+         "model_type": "classical",
+         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+         "nshots": "none",
+         "save_path_override": "strategy_comparison/classical/9_hidden/non_iid/simulations/simulation_experiments",
+         "strategies": classical_non_iid_9h},
     ]
 
 

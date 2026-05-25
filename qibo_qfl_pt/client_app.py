@@ -1,5 +1,9 @@
 """Quantum Federated Learning Client with Qiboml (PyTorch) and Flower."""
 
+
+
+
+
 import gc
 import numpy as np
 
@@ -20,6 +24,8 @@ def train(msg: Message, context: Context):
     """Train the model on local data."""
 
     seed = int(context.run_config["seed"])
+    init_seed = int(context.run_config.get("init-seed", seed))
+    data_seed = int(context.run_config.get("data-seed", seed))
     set_seed(seed)
 
     epochs = context.run_config["local-epochs"]
@@ -37,6 +43,10 @@ def train(msg: Message, context: Context):
     ndarrays = msg.content["arrays"].to_numpy_ndarrays()
     set_weights(model, ndarrays)
 
+    # Salva parametri globali per calcolo drift
+    import torch
+    global_params = [p.clone().detach() for p in model.parameters()]
+
     # FedProx: leggi mu dal config (le altre strategie non lo mandano → 0.0)
     proximal_mu = msg.content.get("config", {}).get("proximal-mu", 0.0)
     global_weights = [w.copy() for w in ndarrays] if proximal_mu > 0 else None
@@ -48,7 +58,7 @@ def train(msg: Message, context: Context):
         iid=context.run_config["iid"],
         num_partitions=context.run_config["num-clients"],
         alpha=context.run_config["alpha"],
-        seed=seed,
+        seed=data_seed,
     )
 
     # training
@@ -67,6 +77,12 @@ def train(msg: Message, context: Context):
     if history["f1"]:
         metrics["train_f1"] = history["f1"][-1]
 
+    # Calcola drift: distanza L2 tra parametri locali e globali
+    drift = sum(
+        (p - gp).pow(2).sum() for p, gp in zip(model.parameters(), global_params)
+    ).sqrt().item()
+    metrics["drift"] = drift
+
     # risposta al server
     content = RecordDict({
         "arrays": ArrayRecord(get_weights(model)),
@@ -84,6 +100,8 @@ def evaluate(msg: Message, context: Context):
     """Evaluate the model on local data."""
 
     seed = int(context.run_config["seed"])
+    init_seed = int(context.run_config.get("init-seed", seed))
+    data_seed = int(context.run_config.get("data-seed", seed))
     set_seed(seed)
 
     partition_id = get_partition_id(msg, context)
@@ -102,7 +120,7 @@ def evaluate(msg: Message, context: Context):
         iid=context.run_config["iid"],
         num_partitions=context.run_config["num-clients"],
         alpha=context.run_config["alpha"],
-        seed=seed,
+        seed=data_seed,
         client_eval=True,
     )
 
