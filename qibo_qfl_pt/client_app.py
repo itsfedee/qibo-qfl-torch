@@ -118,6 +118,7 @@ def evaluate(msg: Message, context: Context):
         alpha=context.run_config["alpha"],
         seed=data_seed,
         client_eval=True,
+        testing=context.run_config.get("testing", True),
     )
 
     loss, acc, f1 = evaluate_model(model, x_eval, y_eval)

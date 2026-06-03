@@ -127,7 +127,7 @@ def main(grid: Grid, context: Context) -> None:
         grid=grid,
         initial_arrays=arrays,
         num_rounds=num_rounds,
-        evaluate_fn=lambda sr, arr: global_evaluate(sr, arr, testing=True),
+        evaluate_fn=lambda sr, arr: global_evaluate(sr, arr, testing=context.run_config.get("testing", True)),
     )
 
     # salvataggio pesi finali

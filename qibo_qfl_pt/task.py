@@ -374,7 +374,7 @@ def get_partition_id(msg, context):
     return context.node_config.get("partition-id", 0)
 
 
-def load_data_client(partition_id, ndata=500, iid=True, num_partitions=5, alpha=0.25, seed=42, client_eval=False):
+def load_data_client(partition_id, ndata=500, iid=True, num_partitions=5, alpha=0.25, seed=42, client_eval=False, testing=True):
     
     global partitioner, last_seed
     if partitioner is None or last_seed != seed:
@@ -397,7 +397,8 @@ def load_data_client(partition_id, ndata=500, iid=True, num_partitions=5, alpha=
     y_train = torch.tensor(np.array(part["label"], dtype=np.float64).squeeze(), dtype=torch.float64)
 
     if client_eval:
-        rng    = np.random.default_rng(seed=partition_id + 1000)
+        eval_seed = partition_id + 1000 if testing else partition_id + 2000
+        rng    = np.random.default_rng(seed=eval_seed)
         x_eval = torch.tensor(rng.uniform(-1, 1, size=(200, 2)), dtype=torch.float64)
         y_eval = torch.tensor((np.linalg.norm(x_eval.numpy(), axis=1) <= 1.0), dtype=torch.float64)
         return x_eval, y_eval

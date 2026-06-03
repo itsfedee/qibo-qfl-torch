@@ -103,6 +103,7 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
         f'data-seed=2',
         f'save-path="{job["save_path"]}"',
         f'save-weights=false',
+        f'testing=false',
         f'model-type="{job["model_type"]}"',
     ]
     if job["distribution"] == "non_iid":
