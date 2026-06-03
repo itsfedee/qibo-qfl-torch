@@ -196,7 +196,7 @@ def run_single_job(job):
     epochs_data, weights, elapsed = train_and_evaluate(
         model,
         ndata_train=job["ndata"],
-        seed=job["seed"],
+        seed=job["data_seed"],
         epochs=job["epochs"],
         lr=job["lr"],
         batch_size=job["batch_size"],
@@ -257,6 +257,8 @@ if __name__ == "__main__":
     parser.add_argument("--nshots", type=str, default="1000")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--seeds", type=int, nargs="+", default=[4])
+    parser.add_argument("--data-seed", type=int, default=2,
+                        help="Seed per la generazione dei dati (fisso). Default: 2.")
     parser.add_argument("--model-type", type=str, default="quantum",
                         choices=["quantum", "hybrid", "classical"],
                         help="Tipo di modello: quantum, hybrid, classical.")
@@ -289,7 +291,7 @@ if __name__ == "__main__":
         for p in p_list:
             for lr in args.lr:
                 if p == 0.0:
-                    save_path = f"{args.save_root}/noiseless/nshots_{args.nshots}"
+                    save_path = f"fixed_centralized/noiseless_noshots"
                 else:
                     save_path = f"{args.save_root}/{mode}/p{p}/nshots_{args.nshots}"
 
@@ -298,6 +300,7 @@ if __name__ == "__main__":
                     jobs.append({
                         "mode": mode,
                         "seed": seed,
+                        "data_seed": args.data_seed,
                         "pauli_prob": p,
                         "readout_prob": p,
                         "nshots": args.nshots,

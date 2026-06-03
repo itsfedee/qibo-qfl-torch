@@ -1,9 +1,5 @@
 """Quantum Federated Learning Client with Qiboml (PyTorch) and Flower."""
 
-
-
-
-
 import gc
 import numpy as np
 

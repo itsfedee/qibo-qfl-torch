@@ -77,6 +77,8 @@ def main(grid: Grid, context: Context) -> None:
             "noise_scale": noise_scale,
         }
 
+    seed_label = context.run_config.get("seed-label", "") or None
+
     kwargs = {
         "fraction_train": fraction_train,
         "fraction_evaluate": fraction_evaluate,
@@ -96,6 +98,7 @@ def main(grid: Grid, context: Context) -> None:
         "nshots": nshots_info,
         "training_mode": mode,
         "model_type": model_type,
+        "seed_label": seed_label,
     }
 
     if param_name is not None:
@@ -138,8 +141,8 @@ def main(grid: Grid, context: Context) -> None:
 
         weights_dir = str(Path(save_path) / "weights")
         os.makedirs(weights_dir, exist_ok=True)
-        seed_label = f"seed{seed}"
-        filename = f"{strategy_name}{param_str}_etal{eta_l}_{seed_label}.npz"
+        wt_seed_label = seed_label if seed_label else f"seed{seed}"
+        filename = f"{strategy_name}{param_str}_etal{eta_l}_{wt_seed_label}.npz"
         np.savez(os.path.join(weights_dir, filename), *result.arrays.to_numpy_ndarrays())
 
     gc.collect()

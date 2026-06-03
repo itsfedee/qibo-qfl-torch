@@ -133,9 +133,9 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
     parts = [
         f'strategy="{job["strategy"]}"',
         f'seed={seed}',
-        f'data-seed=2',
-        f'init-seed={seed}',
-        f'sampling-seed={seed}',
+        f'data-seed={job.get("data_seed", 2)}',
+        f'init-seed={job.get("init_seed", seed)}',
+        f'sampling-seed={job.get("sampling_seed", seed)}',
         f'mode="{job["mode"]}"',
         f'model-type="{job["model_type"]}"',
         f'base-pauli={job["base_pauli"]}',
@@ -145,6 +145,8 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
         f'save-path="{job["save_path"]}"',
 
     ]
+    if job.get("seed_label"):
+        parts.append(f'seed-label="{job["seed_label"]}"')
     if job["srv_name"] is not None:
         parts.append(f'{job["srv_name"]}={job["srv_val"]}')
     if job["cli_name"] is not None:
@@ -298,6 +300,17 @@ if __name__ == '__main__':
     # Strategie per modello e distribuzione
     # -----------------------------------------------------------------
 
+    # Quantum 6L (HP da tuning)
+    quantum_6l_iid = {
+        "FedAvg":     (None,  None,  "eta_l", 0.4,   SEEDS),
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+    }
+    # Quantum 6L non-IID: no tuning, usa stessi HP dell'IID
+    quantum_6l_non_iid = quantum_6l_iid
+
     # Quantum 3L
     quantum_iid = {
         "FedAvg":     (None,  None,  "eta_l", 0.3,   SEEDS),
@@ -359,56 +372,78 @@ if __name__ == '__main__':
     # Runs
     # -----------------------------------------------------------------
 
-    runs = [
-        # Quantum 3L - IID
-        {"distribution": "iid", "mode": "noiseless",
-         "model_type": "quantum",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison_fixed_training/quantum/3_layers/iid/simulations/simulation_experiments",
-         "strategies": quantum_iid},
+    # Tutte le strategie tranne FedAvg, quantum 3L, 1000 shots
+    no_fedavg_iid = {
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.2,   "eta_l", 0.15,  SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+    }
+    no_fedavg_non_iid = {
+        "FedAdagrad": ("eta", 0.3,   "eta_l", 0.2,   SEEDS),
+        "FedAdam":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+        "FedProx":    ("mu",  0.03,  "eta_l", 0.3,   SEEDS),
+        "FedYogi":    ("eta", 0.1,   "eta_l", 0.1,   SEEDS),
+    }
 
-        # Quantum 3L - Non-IID
-        {"distribution": "non_iid", "mode": "noiseless",
-         "model_type": "quantum",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison_fixed_training/quantum/3_layers/non_iid/simulations/simulation_experiments",
-         "strategies": quantum_non_iid},
+    runs = []
 
-        # Hybrid 3L 6H - IID
-        {"distribution": "iid", "mode": "noiseless",
-         "model_type": "hybrid",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison_fixed_training/hybrid/3L_6hidden/iid/simulations/simulation_experiments",
-         "strategies": hybrid_iid},
+    # -----------------------------------------------------------------
+    # Seed isolation tests (noiseless, nshots=none)
+    # Ogni test fissa tutto tranne un tipo di seed, che varia da 1 a 7.
+    # -----------------------------------------------------------------
 
-        # Hybrid 3L 6H - Non-IID
-        {"distribution": "non_iid", "mode": "noiseless",
-         "model_type": "hybrid",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison_fixed_training/hybrid/3L_6hidden/non_iid/simulations/simulation_experiments",
-         "strategies": hybrid_non_iid},
+    # 1) Solo init-seed varia (data-seed=2, sampling-seed=1)
+    runs.append({
+        "distribution": "iid", "mode": "noiseless",
+        "model_type": "classical",
+        "base_pauli": 0, "base_readout": 0, "scale": 0,
+        "nshots": "none",
+        "save_path_override": "fixed_comparison_TESTS/classical_9h_iid",
+        "strategies": [
+            ("FedAvg", (None, None, "eta_l", 0.2, SEEDS)),
+            ("FedAvg", (None, None, "eta_l", 0.4, SEEDS)),
 
+            ("FedProx", ("eta", 0.1, "eta_l", 0.3, SEEDS)),
+            ("FedProx", ("eta", 0.05, "eta_l", 0.2, SEEDS)),
 
-        # Classical 9H - IID
-        {"distribution": "iid", "mode": "noiseless",
-         "model_type": "classical",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison_fixed_training/classical/9_hidden/iid/simulations/simulation_experiments",
-         "strategies": classical_iid_9h},
+            ("FedAdagrad", ("eta", 0.1, "eta_l", 0.3, SEEDS)),
+            ("FedAdagrad", ("eta", 0.2, "eta_l", 0.15, SEEDS)),
+        ],
 
-        # Classical 9H - Non-IID
-        {"distribution": "non_iid", "mode": "noiseless",
-         "model_type": "classical",
-         "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
-         "nshots": "none",
-         "save_path_override": "strategy_comparison_fixed_training/classical/9_hidden/non_iid/simulations/simulation_experiments",
-         "strategies": classical_non_iid_9h},
-    ]
+    })
+
+    runs.append({
+        "distribution": "iid", "mode": "noiseless",
+        "model_type": "hybrid",
+        "base_pauli": 0, "base_readout": 0, "scale": 0,
+        "nshots": "none",
+        "save_path_override": "fixed_comparison_TESTS/hybrid_iid",
+        "strategies": [
+            ("FedYogi", ("eta", 0.1, "eta_l", 0.2, SEEDS)),
+            ("FedYogi", ("eta", 0.01, "eta_l", 0.08, SEEDS)),
+        ],
+
+    })
+
+    runs.append({
+        "distribution": "iid", "mode": "noiseless",
+        "model_type": "quantum",
+        "base_pauli": 0, "base_readout": 0, "scale": 0,
+        "nshots": "none",
+        "save_path_override": "fixed_comparison_TESTS/quantum_6L_iid",
+        "strategies": [
+            ("FedYogi", ("eta", 0.1, "eta_l", 0.1, SEEDS)),
+            ("FedYogi", ("eta", 0.2, "eta_l", 0.25, SEEDS)),
+
+            ("FedAdam", ("eta", 0.1, "eta_l", 0.2, SEEDS)),
+            ("FedAdam", ("eta", 0.25, "eta_l", 0.2, SEEDS)),
+        ],
+
+    })
+
+    
+
 
 
 
@@ -421,16 +456,23 @@ if __name__ == '__main__':
         noise_label = ExperimentPath.noise_label(
             run["base_pauli"], run["base_readout"], run["scale"]
         )
-        for strategy, (srv_name, srv_val, cli_name, cli_val, seeds) in run["strategies"].items():
-            save_path = run.get("save_path_override") or ExperimentPath.build(
+        # Supporta sia dict che list di tuple per le strategie
+        strat_items = run["strategies"].items() if isinstance(run["strategies"], dict) else run["strategies"]
+        for strategy, (srv_name, srv_val, cli_name, cli_val, seeds) in strat_items:
+            override = run.get("save_path_override", "")
+            save_path = override.format(strategy=strategy.lower()) if override else ExperimentPath.build(
                 distribution=run["distribution"],
                 strategy=strategy,
                 mode=run["mode"],
                 noise=noise_label,
                 nshots=run["nshots"],
             )
+            seed_overrides = run.get("seed_overrides", {})
+            seed_label_prefix = run.get("seed_label_prefix", "")
+            seed_label_source = run.get("seed_label_source", "")
+
             for seed in seeds:
-                jobs.append({
+                job = {
                     "strategy": strategy,
                     "seed": seed,
                     "mode": run["mode"],
@@ -446,7 +488,28 @@ if __name__ == '__main__':
                     "cli_val": cli_val,
                     "distribution": run["distribution"],
                     "noise_label": noise_label,
-                })
+                }
+
+                # Seed isolation: i seed in overrides sono fissi,
+                # quelli NON in overrides variano con seed.
+                if seed_overrides:
+                    job["init_seed"] = seed_overrides.get("init_seed", seed)
+                    job["data_seed"] = seed_overrides.get("data_seed", seed)
+                    job["sampling_seed"] = seed_overrides.get("sampling_seed", seed)
+
+                if seed_label_prefix:
+                    # Determina il valore del seed che varia per il label
+                    if seed_label_source == "init_seed":
+                        vary_val = job.get("init_seed", seed)
+                    elif seed_label_source == "data_seed":
+                        vary_val = job.get("data_seed", seed)
+                    elif seed_label_source == "sampling_seed":
+                        vary_val = job.get("sampling_seed", seed)
+                    else:
+                        vary_val = seed
+                    job["seed_label"] = f"{seed_label_prefix}{vary_val}"
+
+                jobs.append(job)
 
     total = len(jobs)
     print(f"Totale jobs da eseguire: {total}\n")

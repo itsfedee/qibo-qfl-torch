@@ -903,20 +903,15 @@ def plot_comparison(distribution="iid", with_centralized=True):
 # =====================================================================
 
 if __name__ == "__main__":
+    R = "fixed_comparison_TESTS"
 
-  
+    folders = ["classical_9h_iid", "hybrid_iid", "quantum_6L_iid"]
 
-  # Classical Yogi test
-  scenarios={
-      "standard": "results/federated/iid/fedavg/noiseless/uniform_p0.0_r0.0/nshots_1000",
-      "fixed training set": "fedavg_tests/fedavg_fixed_data/nshots_1000",
-   
-  }
-  plot(
-      scenarios=scenarios,
-      save_path="fedavg_tests/fedavg_fixed_data/fixed_data_comparison.png",
-      source="eval_metrics_server",
-      metrics=("loss",),
-      title="Fixed training set vs standard",
-      save_json=True
-  )
+    for folder in folders:
+        plot(
+            scenarios={"": f"{R}/{folder}"},
+            save_path=f"{R}/plots/{folder}.png",
+            source="eval_metrics_server",
+            metrics=("loss",),
+            title=folder,
+        )

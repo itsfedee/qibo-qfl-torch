@@ -335,7 +335,7 @@ class fedavg(StrategyWithMetrics, FedAvg):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        seed_label = f"seed{seed}"
+        seed_label = kwargs.pop("seed_label", None) or f"seed{seed}"
         suffix = f"_etal{eta_l}_{seed_label}"
         super().__init__(
             suffix=suffix,
@@ -348,7 +348,7 @@ class fedavg(StrategyWithMetrics, FedAvg):
 class fedadam(StrategyWithMetrics, FedAdam):
     """FedAdam con salvataggio e stampa delle metriche."""
     def __init__(self, seed, eta, eta_l, num_rounds, num_clients, local_epochs, iid, alpha,
-                 sampling_seed=None, run_id=None, **kwargs):
+                 sampling_seed=None, run_id=None, init_seed=None, data_seed=None, **kwargs):
         run_info = {
             "strategy": "FedAdam",
             "seed": seed,
@@ -363,7 +363,7 @@ class fedadam(StrategyWithMetrics, FedAdam):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        seed_label = kwargs.pop("seed_label", None) or f"seed{seed}"
         suffix = f"_eta{eta}_etal{eta_l}_{seed_label}"
         super().__init__(
             eta=eta,
@@ -377,7 +377,7 @@ class fedadam(StrategyWithMetrics, FedAdam):
 
 class fedadagrad(StrategyWithMetrics, FedAdagrad):
     def __init__(self, seed, eta, eta_l, num_rounds, num_clients, local_epochs, iid, alpha,
-                 sampling_seed=None, run_id=None, **kwargs):
+                 sampling_seed=None, run_id=None, init_seed=None, data_seed=None, **kwargs):
         run_info = {
             "strategy": "FedAdagrad",
             "seed": seed,
@@ -390,7 +390,7 @@ class fedadagrad(StrategyWithMetrics, FedAdagrad):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        seed_label = kwargs.pop("seed_label", None) or f"seed{seed}"
         suffix = f"_eta{eta}_etal{eta_l}_{seed_label}"
         super().__init__(
             eta=eta,
@@ -404,7 +404,7 @@ class fedadagrad(StrategyWithMetrics, FedAdagrad):
 
 class fedyogi(StrategyWithMetrics, FedYogi):
     def __init__(self, seed, eta, eta_l, num_rounds, num_clients, local_epochs, iid, alpha,
-                 sampling_seed=None, run_id=None, **kwargs):
+                 sampling_seed=None, run_id=None, init_seed=None, data_seed=None, **kwargs):
         run_info = {
             "strategy": "FedYogi",
             "seed": seed,
@@ -417,7 +417,7 @@ class fedyogi(StrategyWithMetrics, FedYogi):
             "iid": iid,
             "alpha": alpha if not iid else None,
         }
-        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+        seed_label = kwargs.pop("seed_label", None) or f"seed{seed}"
         suffix = f"_eta{eta}_etal{eta_l}_{seed_label}"
         super().__init__(
             eta=eta,
@@ -432,8 +432,8 @@ class fedyogi(StrategyWithMetrics, FedYogi):
 class fedprox(StrategyWithMetrics, FedProx):
     """FedProx con salvataggio e stampa delle metriche."""
     def __init__(self, seed, mu, num_rounds, num_clients, iid, alpha, local_epochs,
-                 eta_l=None, sampling_seed=None, run_id=None, **kwargs):
-        seed_label = f"run{int(run_id)}" if run_id is not None else f"seed{seed}"
+                 eta_l=None, sampling_seed=None, run_id=None, init_seed=None, data_seed=None, **kwargs):
+        seed_label = kwargs.pop("seed_label", None) or f"seed{seed}"
         suffix = f"_mu{mu}_etal{eta_l}_{seed_label}"
         run_info = {
             "strategy": "FedProx",

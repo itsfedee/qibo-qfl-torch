@@ -39,26 +39,11 @@ grid_lr = [
 ]
 
 configs = {
-    "FedAvg":     [(None, "eta_l", v) for v in [0.3]],
+    "FedAvg":     [(None, "eta_l", v) for v in [0.001, 0.005, 0.01, 0.15, 0.2, 0.25, 0.3, 0.35]],
     "FedAdagrad": [("eta", s, "eta_l", c) for s, c in grid_lr],
     "FedAdam":    [("eta", s, "eta_l", c) for s, c in grid_lr],
     "FedYogi":    [("eta", s, "eta_l", c) for s, c in grid_lr],
     "FedProx":    [("mu",  s, "eta_l", c) for s, c in grid_lr],
-}
-# nuvoa grid per tuning veloce di quantum 6L e classical 3h
-grid_lr_short = [
-    (0.1, 0.1),   
-    (0.2, 0.15),   
-    (0.3, 0.2),  
-    (0.03, 0.3),   
-]
-
-configs = {
-    "FedAvg":     [(None, "eta_l", v) for v in [0.1, 0.2, 0.3, 0.4]],
-    "FedAdagrad": [("eta", s, "eta_l", c) for s, c in grid_lr_short],
-    "FedAdam":    [("eta", s, "eta_l", c) for s, c in grid_lr_short],
-    "FedYogi":    [("eta", s, "eta_l", c) for s, c in grid_lr_short],
-    "FedProx":    [("mu",  s, "eta_l", c) for s, c in grid_lr_short],
 }
 
 
@@ -115,6 +100,7 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
     config_parts = [
         f'strategy="{job["strategy"]}"',
         f'seed={job["seed"]}',
+        f'data-seed=2',
         f'save-path="{job["save_path"]}"',
         f'save-weights=false',
         f'model-type="{job["model_type"]}"',

@@ -26,7 +26,7 @@ qibo.config.log.setLevel("ERROR")
 torch.set_default_dtype(torch.float64)
 set_backend("numpy")
 
-import qibo_qfl_pt.patches  # noqa: E402, F401
+import qibo_qfl_pt.patches  
 
 
 # =====================================================================
@@ -34,7 +34,7 @@ import qibo_qfl_pt.patches  # noqa: E402, F401
 # =====================================================================
 
 NQUBITS = 2
-NLAYERS = 3
+NLAYERS = 6 # testare anche con 6
 
 
 # =====================================================================
@@ -160,7 +160,7 @@ class QMLModel(nn.Module):
         return torch.clamp(x, 1e-7, 1 - 1e-7)
 """
 HIDDEN_HYBRID = 6
-HIDDEN_CLASSICAL = 9 
+HIDDEN_CLASSICAL = 9
 
 
 class ClassicalModel(nn.Module):
