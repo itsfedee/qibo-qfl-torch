@@ -585,20 +585,23 @@ def plot_centralized_weight_distances(base_dir, noise_levels, seeds=range(1, 8),
 
 # =====================================================================
 
-def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, weights_path=None,
+def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, client_id=0, weights_path=None,
                        n_training_samples=120, nshots_cdr=30000, cdr_seed=40,
-                       nshots_model=1000, save_path=None, title=None):
-    """Scatterplot dei training points CDR (noisy vs noise-free) con retta di regressione."""
+                       nshots_model=1000, save_path=None, title=None, ax=None):
+    """Scatterplot dei training points CDR (noisy vs noise-free) con retta di regressione.
+
+    Se ax è passato, disegna su quell'asse (per subplot). Altrimenti crea una figura nuova.
+    """
     from qibo_qfl_pt.task import create_model, build_noise_model, set_weights
 
     noise_model, readout_prob = build_noise_model(
-        pauli_base=pauli_base, readout_base=readout_base, partition_id=0, scale=scale,
+        pauli_base=pauli_base, readout_base=readout_base, partition_id=client_id, scale=scale,
     )
     single = np.array([[1 - readout_prob, readout_prob],
                         [readout_prob, 1 - readout_prob]])
     response_matrix = np.kron(single, single)
     mitigation_config = {
-        "threshold": 0.01, "min_iterations": 500, "method": "CDR",
+        "threshold": 0.1, "min_iterations": 500, "method": "CDR",
         "method_kwargs": {
             "n_training_samples": n_training_samples,
             "nshots": nshots_cdr, "seed": cdr_seed,
@@ -612,13 +615,11 @@ def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, weights_path=None,
         w = list(np.load(weights_path).values())
         set_weights(model, w)
 
-    # Forward pass per triggerare la calibrazione CDR
     import torch
     x = torch.tensor([[0.5, 0.3]], dtype=torch.float64)
     with torch.no_grad():
         model(x)
 
-    # Estrai training data e parametri del fit
     mitigator = model.q_model.decoding.mitigator
     train_data = mitigator._training_data
     popt = mitigator._mitigation_map_popt
@@ -627,30 +628,34 @@ def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, weights_path=None,
     noisefree = np.array(train_data["noise-free"])
     a, b = float(popt[0]), float(popt[1])
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(7, 6))
-    ax.scatter(noisy, noisefree, color="blue", alpha=0.5, s=20, label="Training points")
+    if title is None:
+        title = f"CDR noise map (p={pauli_base})"
 
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(7, 6))
+
+    ax.scatter(noisy, noisefree, color="blue", alpha=0.5, s=20, label="Training points")
     x_fit = np.linspace(noisy.min(), noisy.max(), 100)
     ax.plot(x_fit, a * x_fit + b, color="red", linewidth=2,
             label=f"Fit: y = {a:.3f}x + {b:.3f}")
-
     ax.set_xlabel("Noisy expectation value", fontsize=14)
     ax.set_ylabel("Noise-free expectation value", fontsize=14)
-    if title is None:
-        title = f"CDR noise map (p={pauli_base})"
     ax.set_title(title, fontsize=16, fontweight="bold")
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
-    plt.tight_layout()
 
-    if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        print(f"Plot saved to {save_path}")
-    plt.show()
+    if own_fig:
+        plt.tight_layout()
+        if save_path:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
+            print(f"Plot saved to {save_path}")
+        plt.show()
 
     return noisy, noisefree, a, b
+
+
 
 
 def weight_distance(theta_a, theta_b, mode="2pi"):
@@ -903,15 +908,16 @@ def plot_comparison(distribution="iid", with_centralized=True):
 # =====================================================================
 
 if __name__ == "__main__":
-    R = "fixed_comparison_TESTS"
-
-    folders = ["classical_9h_iid", "hybrid_iid", "quantum_6L_iid"]
-
-    for folder in folders:
-        plot(
-            scenarios={"": f"{R}/{folder}"},
-            save_path=f"{R}/plots/{folder}.png",
-            source="eval_metrics_server",
-            metrics=("loss",),
-            title=folder,
-        )
+    folder_mit = "fedavg_mitigation_high_threshold"
+    plot(
+        scenarios={
+            "mitigated 0.005": "fedavg_mitigation_high_threshold",
+            "noisy 0.005": "fixed_training_set_results/noiseless_noisy_mit_fixed_results/federated/iid/fedavg/noisy/p0.005",
+            "noiseless": "fixed_training_set_results/noiseless_noisy_mit_fixed_results/federated/iid/fedavg/noiseless"
+            },
+        source="eval_metrics_client",
+        metrics=("loss",),
+        title="FedAvg mitigated (high threshold, p=0.005)",
+        save_path=f"{folder_mit}/fedavg_mitigated_high_threshold.png",
+        save_json=True,
+    )

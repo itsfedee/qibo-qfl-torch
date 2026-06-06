@@ -145,6 +145,8 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
         f'save-path="{job["save_path"]}"',
 
     ]
+    if job.get("num_rounds"):
+        parts.append(f'num-server-rounds={job["num_rounds"]}')
     if job.get("seed_label"):
         parts.append(f'seed-label="{job["seed_label"]}"')
     if job["srv_name"] is not None:
@@ -388,59 +390,40 @@ if __name__ == '__main__':
 
     runs = []
 
-    # -----------------------------------------------------------------
-    # Seed isolation tests (noiseless, nshots=none)
-    # Ogni test fissa tutto tranne un tipo di seed, che varia da 1 a 7.
-    # -----------------------------------------------------------------
 
-    # 1) Solo init-seed varia (data-seed=2, sampling-seed=1)
+    # =================================================================
+    # SESSIONE 2: richiede HIDDEN_CLASSICAL=3 e NLAYERS=6 in task.py
+    # =================================================================
+
+    # --- Variable: classical 3H, IID, simulation — fedprox seed 3,4 + fedyogi seed 2,3 (crashati) ---
     runs.append({
         "distribution": "iid", "mode": "noiseless",
         "model_type": "classical",
-        "base_pauli": 0, "base_readout": 0, "scale": 0,
+        "base_pauli": 0.0, "base_readout": 0.0, "scale": 0,
         "nshots": "none",
-        "save_path_override": "fixed_comparison_TESTS/classical_9h_iid",
+        "num_rounds": 60,
+        "fixed_training_set": False,
+        "save_path_override": "variable_training_set_results/strategy_comparison/classical/3_hidden/iid/simulations/simulation_experiments",
         "strategies": [
-            ("FedAvg", (None, None, "eta_l", 0.2, SEEDS)),
-            ("FedAvg", (None, None, "eta_l", 0.4, SEEDS)),
-
-            ("FedProx", ("eta", 0.1, "eta_l", 0.3, SEEDS)),
-            ("FedProx", ("eta", 0.05, "eta_l", 0.2, SEEDS)),
-
-            ("FedAdagrad", ("eta", 0.1, "eta_l", 0.3, SEEDS)),
-            ("FedAdagrad", ("eta", 0.2, "eta_l", 0.15, SEEDS)),
+            ("FedProx", ("mu", 0.03, "eta_l", 0.3, [3, 4])),
+            ("FedYogi", ("eta", 0.3, "eta_l", 0.2, [2, 3])),
         ],
-
     })
 
-    runs.append({
-        "distribution": "iid", "mode": "noiseless",
-        "model_type": "hybrid",
-        "base_pauli": 0, "base_readout": 0, "scale": 0,
-        "nshots": "none",
-        "save_path_override": "fixed_comparison_TESTS/hybrid_iid",
-        "strategies": [
-            ("FedYogi", ("eta", 0.1, "eta_l", 0.2, SEEDS)),
-            ("FedYogi", ("eta", 0.01, "eta_l", 0.08, SEEDS)),
-        ],
-
-    })
-
+    # --- Variable: quantum 6L, IID, tuning — fedadagrad seed 71 (constant loss) ---
     runs.append({
         "distribution": "iid", "mode": "noiseless",
         "model_type": "quantum",
-        "base_pauli": 0, "base_readout": 0, "scale": 0,
+        "base_pauli": 0.0, "base_readout": 0.0, "scale": 0,
         "nshots": "none",
-        "save_path_override": "fixed_comparison_TESTS/quantum_6L_iid",
+        "num_rounds": 60,
+        "fixed_training_set": False,
+        "save_path_override": "variable_training_set_results/strategy_comparison/quantum/6_layers/iid/tuning/tuning_experiments",
         "strategies": [
-            ("FedYogi", ("eta", 0.1, "eta_l", 0.1, SEEDS)),
-            ("FedYogi", ("eta", 0.2, "eta_l", 0.25, SEEDS)),
-
-            ("FedAdam", ("eta", 0.1, "eta_l", 0.2, SEEDS)),
-            ("FedAdam", ("eta", 0.25, "eta_l", 0.2, SEEDS)),
+            ("FedAdagrad", ("eta", 0.2, "eta_l", 0.15, [71])),
         ],
-
     })
+
 
     
 
@@ -471,6 +454,8 @@ if __name__ == '__main__':
             seed_label_prefix = run.get("seed_label_prefix", "")
             seed_label_source = run.get("seed_label_source", "")
 
+            fixed_training = run.get("fixed_training_set", True)
+
             for seed in seeds:
                 job = {
                     "strategy": strategy,
@@ -488,6 +473,8 @@ if __name__ == '__main__':
                     "cli_val": cli_val,
                     "distribution": run["distribution"],
                     "noise_label": noise_label,
+                    "data_seed": 2 if fixed_training else seed,
+                    "num_rounds": run.get("num_rounds"),
                 }
 
                 # Seed isolation: i seed in overrides sono fissi,

@@ -189,9 +189,10 @@ if __name__ == '__main__':
     parser.add_argument(
         "--distribution",
         type=str,
-        default="iid",
+        nargs="+",
+        default=["iid"],
         choices=["iid", "non_iid"],
-        help="Distribuzione dati. Default: iid.",
+        help="Distribuzione/i dati. Default: iid. Più valori possibili.",
     )
     parser.add_argument(
         "--strategy",
@@ -228,7 +229,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f">>> Platform: {platform.system()} ({platform.machine()})")
-    print(f">>> Distribution: {args.distribution}")
+    print(f">>> Distributions: {args.distribution}")
 
     pool_stagger = 0.0 if args.workers == 1 else 5.0 * args.workers
 
@@ -252,37 +253,40 @@ if __name__ == '__main__':
     # =================================================================
     # Costruzione lista jobs
     # =================================================================
-
+    
     jobs = []
-    for mt in args.model_type:
-        model_dir = f"{mt}_strategies_comparison" if mt != "quantum" else "strategy_comparison/quantum"
-        save_path = f"{model_dir}/{args.distribution}/noiseless/tuning/tuning_experiments"
-        if mt == "quantum": save_path = f"quantum_strategies_comparison/{args.distribution}/noiseless/tuning_6L/tuning_experiments"
-        if mt == "classical": save_path = f"classical_strategies_comparison/{args.distribution}/noiseless/tuning_3h/tuning_experiments"
+    for dist in args.distribution:
+        for mt in args.model_type:
+            if mt == "quantum":
+                save_path = f"fixed_training_set_results/strategy_comparison_fixed/quantum/3_layers/{dist}/tuning_3L/tuning_experiments"
+            elif mt == "classical":
+                save_path = f"fixed_training_set_results/strategy_comparison_fixed/classical/9_hidden/{dist}/tuning_9h/tuning_experiments"
+            elif mt == "hybrid":
+                save_path = f"fixed_training_set_results/strategy_comparison_fixed/hybrid/3_layers_6_hidden/{dist}/tuning_3L_6h/tuning_experiments"
 
-        print(f">>> [{mt}] Save path: {save_path}")
+            print(f">>> [{dist} {mt}] Save path: {save_path}")
 
-        for strategy in strategies_to_use:
-            for config in configs[strategy]:
-                if config[0] is None:
-                    srv_name, srv_val = None, None
-                    cli_name, cli_val = config[1], config[2]
-                else:
-                    srv_name, srv_val = config[0], config[1]
-                    cli_name, cli_val = config[2], config[3]
+            for strategy in strategies_to_use:
+                for config in configs[strategy]:
+                    if config[0] is None:
+                        srv_name, srv_val = None, None
+                        cli_name, cli_val = config[1], config[2]
+                    else:
+                        srv_name, srv_val = config[0], config[1]
+                        cli_name, cli_val = config[2], config[3]
 
-                for seed in SEEDS:
-                    jobs.append({
-                        "strategy": strategy,
-                        "seed": seed,
-                        "srv_name": srv_name,
-                        "srv_val": srv_val,
-                        "cli_name": cli_name,
-                        "cli_val": cli_val,
-                        "save_path": save_path,
-                        "distribution": args.distribution,
-                        "model_type": mt,
-                    })
+                    for seed in SEEDS:
+                        jobs.append({
+                            "strategy": strategy,
+                            "seed": seed,
+                            "srv_name": srv_name,
+                            "srv_val": srv_val,
+                            "cli_name": cli_name,
+                            "cli_val": cli_val,
+                            "save_path": save_path,
+                            "distribution": dist,
+                            "model_type": mt,
+                        })
 
     total = len(jobs)
 

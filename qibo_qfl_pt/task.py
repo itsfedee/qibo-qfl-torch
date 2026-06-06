@@ -34,7 +34,7 @@ import qibo_qfl_pt.patches
 # =====================================================================
 
 NQUBITS = 2
-NLAYERS = 6 # testare anche con 6
+NLAYERS = 3 # testare anche con 6
 
 
 # =====================================================================
