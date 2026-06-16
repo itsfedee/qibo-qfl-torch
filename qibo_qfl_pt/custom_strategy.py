@@ -121,6 +121,7 @@ class StrategyWithMetrics:
             # Aggiungi partition_id al config
             config_dict = dict(config)
             config_dict["partition_id"] = client_index  # Usa indice fisso come partition_id
+            config_dict["server_round"] = server_round
             if hasattr(self, "proximal_mu"):
                 config_dict["proximal-mu"] = self.proximal_mu
             updated_config = ConfigRecord(config_dict)
@@ -168,6 +169,7 @@ class StrategyWithMetrics:
             # Aggiungi partition_id al config
             config_dict = dict(config)
             config_dict["partition_id"] = client_index
+            config_dict["server_round"] = server_round
             updated_config = ConfigRecord(config_dict)
             
             content = RecordDict({
@@ -255,6 +257,21 @@ class StrategyWithMetrics:
                 }
             else:
                 self._last_drift_metrics = None
+
+            # Estrai la noise map REALMENTE USATA in training, per-client (no media)
+            cdr_train = []
+            for reply in train_replies:
+                m = reply.content.get("metrics", {})
+                if "cdr_a_train" in m and "cdr_b_train" in m:
+                    entry = {
+                        "client": int(m.get("cdr_client", -1)),
+                        "a": float(m["cdr_a_train"]),
+                        "b": float(m["cdr_b_train"]),
+                    }
+                    if "cdr_n_maps" in m:
+                        entry["n_maps"] = int(m["cdr_n_maps"])
+                    cdr_train.append(entry)
+            self._last_cdr_train_metrics = cdr_train if cdr_train else None
             if agg_arrays is not None:
                 arrays = agg_arrays
                 result.arrays = agg_arrays
@@ -278,6 +295,24 @@ class StrategyWithMetrics:
                 if agg_evaluate_metrics is not None:
                     result.evaluate_metrics_clientapp[self.current_round] = agg_evaluate_metrics
                     log(INFO, f" └──> Eval metrics: {dict(agg_evaluate_metrics)}")
+
+                # Estrai (a,b) CDR per-client dalle risposte di eval (come si fa col drift,
+                # niente media: l'aggregato collasserebbe i client in un valore solo).
+                cdr_per_client = []
+                for reply in evaluate_replies:
+                    m = reply.content.get("metrics", {})
+                    if "cdr_a" in m and "cdr_b" in m:
+                        entry = {
+                            "client": int(m.get("cdr_client", -1)),
+                            "a": float(m["cdr_a"]),
+                            "b": float(m["cdr_b"]),
+                        }
+                        # Scatter coerente con (a,b), se il client lo ha loggato
+                        if "cdr_noisy" in m and "cdr_noisefree" in m:
+                            entry["noisy"] = list(m["cdr_noisy"])
+                            entry["noisefree"] = list(m["cdr_noisefree"])
+                        cdr_per_client.append(entry)
+                self._last_cdr_metrics = cdr_per_client if cdr_per_client else None
             
             # Valutazione server
             if evaluate_fn:
@@ -305,6 +340,16 @@ class StrategyWithMetrics:
         if hasattr(self, "_last_drift_metrics") and self._last_drift_metrics is not None:
             round_data["drift_metrics"] = self._last_drift_metrics
             self._last_drift_metrics = None
+
+        # Aggiungi (a,b) CDR per-client se disponibili
+        if hasattr(self, "_last_cdr_metrics") and self._last_cdr_metrics is not None:
+            round_data["cdr_per_client"] = self._last_cdr_metrics
+            self._last_cdr_metrics = None
+
+        # Aggiungi la noise map USATA in training (per-client) se disponibile
+        if hasattr(self, "_last_cdr_train_metrics") and self._last_cdr_train_metrics is not None:
+            round_data["cdr_train_per_client"] = self._last_cdr_train_metrics
+            self._last_cdr_train_metrics = None
         
         self.metrics_history.append(round_data)
         

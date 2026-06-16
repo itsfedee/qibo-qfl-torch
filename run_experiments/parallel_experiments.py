@@ -147,12 +147,19 @@ def run_single_job(job, timeout_sec, stagger_max=0.0):
     ]
     if job.get("num_rounds"):
         parts.append(f'num-server-rounds={job["num_rounds"]}')
+    if job.get("cdr_threshold") is not None:
+        parts.append(f'cdr-threshold={job["cdr_threshold"]}')
     if job.get("seed_label"):
         parts.append(f'seed-label="{job["seed_label"]}"')
     if job["srv_name"] is not None:
         parts.append(f'{job["srv_name"]}={job["srv_val"]}')
     if job["cli_name"] is not None:
         parts.append(f'{job["cli_name"]}={job["cli_val"]}')
+    if job.get("hidden_classical"):
+        parts.append(f'hidden-classical={job["hidden_classical"]}')
+    if job.get("num_clients"):
+        parts.append(f'num-clients={job["num_clients"]}')
+        parts.append(f'num-partitions={job["num_clients"]}')
     if job["distribution"] == "non_iid":
         parts.append('iid=false')
         parts.append('alpha=1.8')
@@ -390,39 +397,84 @@ if __name__ == '__main__':
 
     runs = []
 
-
     # =================================================================
-    # SESSIONE 2: richiede HIDDEN_CLASSICAL=3 e NLAYERS=6 in task.py
+    # Tuning classico fixed training set: 3 modelli × 2 distribuzioni
+    # Griglia: 8 config per strategia × 3 seed = 24 run per strategia
     # =================================================================
 
-    # --- Variable: classical 3H, IID, simulation — fedprox seed 3,4 + fedyogi seed 2,3 (crashati) ---
-    runs.append({
-        "distribution": "iid", "mode": "noiseless",
-        "model_type": "classical",
-        "base_pauli": 0.0, "base_readout": 0.0, "scale": 0,
-        "nshots": "none",
-        "num_rounds": 60,
-        "fixed_training_set": False,
-        "save_path_override": "variable_training_set_results/strategy_comparison/classical/3_hidden/iid/simulations/simulation_experiments",
-        "strategies": [
-            ("FedProx", ("mu", 0.03, "eta_l", 0.3, [3, 4])),
-            ("FedYogi", ("eta", 0.3, "eta_l", 0.2, [2, 3])),
-        ],
-    })
+    TUNING_SEEDS = [14, 71, 130]
 
-    # --- Variable: quantum 6L, IID, tuning — fedadagrad seed 71 (constant loss) ---
-    runs.append({
-        "distribution": "iid", "mode": "noiseless",
-        "model_type": "quantum",
-        "base_pauli": 0.0, "base_readout": 0.0, "scale": 0,
-        "nshots": "none",
-        "num_rounds": 60,
-        "fixed_training_set": False,
-        "save_path_override": "variable_training_set_results/strategy_comparison/quantum/6_layers/iid/tuning/tuning_experiments",
-        "strategies": [
-            ("FedAdagrad", ("eta", 0.2, "eta_l", 0.15, [71])),
+    # Griglie di tuning (stesse del variable)
+    tuning_grid = {
+        "FedAvg": [
+            (None, None, "eta_l", etal)
+            for etal in [0.001, 0.005, 0.01, 0.15, 0.2, 0.25, 0.3, 0.35]
         ],
-    })
+        "FedAdagrad": [
+            ("eta", eta, "eta_l", etal)
+            for eta, etal in [
+                (0.001, 0.01), (0.01, 0.15), (0.03, 0.3), (0.1, 0.01),
+                (0.1, 0.1), (0.2, 0.05), (0.2, 0.15), (0.3, 0.2),
+            ]
+        ],
+        "FedAdam": [
+            ("eta", eta, "eta_l", etal)
+            for eta, etal in [
+                (0.001, 0.01), (0.01, 0.15), (0.03, 0.3), (0.1, 0.01),
+                (0.1, 0.1), (0.2, 0.05), (0.2, 0.15), (0.3, 0.2),
+            ]
+        ],
+        "FedYogi": [
+            ("eta", eta, "eta_l", etal)
+            for eta, etal in [
+                (0.001, 0.01), (0.01, 0.15), (0.03, 0.3), (0.1, 0.01),
+                (0.1, 0.1), (0.2, 0.05), (0.2, 0.15), (0.3, 0.2),
+            ]
+        ],
+        "FedProx": [
+            ("mu", mu, "eta_l", etal)
+            for mu, etal in [
+                (0.001, 0.01), (0.01, 0.15), (0.03, 0.3), (0.1, 0.01),
+                (0.1, 0.1), (0.2, 0.05), (0.2, 0.15), (0.3, 0.2),
+            ]
+        ],
+    }
+
+    # Modelli classici: (hidden, num_clients, label)
+    classical_models = [
+        (3,  5,  "3_hidden"),
+        (9,  5,  "9_hidden"),
+        (9,  20, "9_hidden_20clients"),
+    ]
+
+    for hidden, n_cli, model_label in classical_models:
+        for dist in ["iid", "non_iid"]:
+            base_path = (
+                f"results/fixed_training_set_results/strategy_comparison_fixed"
+                f"/classical/{model_label}/{dist}/tuning/tuning_experiments"
+            )
+            strategies_list = []
+            for strat_name, configs in tuning_grid.items():
+                for srv_name, srv_val, cli_name, cli_val in configs:
+                    strategies_list.append(
+                        (strat_name, (srv_name, srv_val, cli_name, cli_val, TUNING_SEEDS))
+                    )
+
+            runs.append({
+                "distribution": dist,
+                "mode": "noiseless",
+                "model_type": "classical",
+                "base_pauli": 0.0, "base_readout": 0.0, "scale": 0.0,
+                "nshots": "none",
+                "fixed_training_set": True,
+                "num_rounds": 30,
+                "hidden_classical": hidden,
+                "num_clients": n_cli,
+                "save_path_override": base_path,
+                "strategies": strategies_list,
+            })
+
+
 
 
     
@@ -475,6 +527,9 @@ if __name__ == '__main__':
                     "noise_label": noise_label,
                     "data_seed": 2 if fixed_training else seed,
                     "num_rounds": run.get("num_rounds"),
+                    "cdr_threshold": run.get("cdr_threshold"),
+                    "hidden_classical": run.get("hidden_classical"),
+                    "num_clients": run.get("num_clients"),
                 }
 
                 # Seed isolation: i seed in overrides sono fissi,

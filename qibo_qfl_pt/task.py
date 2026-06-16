@@ -63,11 +63,28 @@ def set_seed(seed, backend=None):
 # Noise
 # =====================================================================
 
-def build_noise_model(pauli_base, readout_base, partition_id, scale):
+WALK_SEED=7
 
+def build_noise_model(pauli_base, readout_base, partition_id, scale,
+                      server_round=0, walk_sigma=0.0, walk_seed=WALK_SEED):
+
+    # --- parte statica: identica a prima ---
     rng = np.random.default_rng(seed=partition_id)
-    pauli_prob = float(np.clip(pauli_base + rng.uniform(-scale, scale), 0, 1))
-    readout_prob = float(np.clip(readout_base + rng.uniform(-scale, scale), 0, 1))
+    pauli_prob = pauli_base + rng.uniform(-scale, scale)
+    readout_prob = readout_base + rng.uniform(-scale, scale)
+
+    # --- parte dinamica: random walk per-client sui round ---
+    # Ricostruzione stateless: il rng riparte sempre da [WALK_SEED, partition_id],
+    # quindi i primi (server_round - 1) passi sono identici a quelli dei round
+    # precedenti e l'offset evolve di un solo incremento per round.
+    if walk_sigma > 0 and server_round > 0:
+        walk_rng = np.random.default_rng([walk_seed, partition_id])
+        steps = walk_rng.normal(0.0, walk_sigma, size=(server_round, 2))
+        pauli_prob += steps[:, 0].sum()
+        readout_prob += steps[:, 1].sum()
+
+    pauli_prob = float(np.clip(pauli_prob, 0, 1))
+    readout_prob = float(np.clip(readout_prob, 0, 1))
 
     noise = NoiseModel()
 
@@ -94,7 +111,7 @@ def build_noise_model(pauli_base, readout_base, partition_id, scale):
 
 
 
-def build_client_config(run_config, partition_id):
+def build_client_config(run_config, partition_id, server_round):
     mode = run_config.get("mode", "noiseless")
     nshots = run_config.get("nshots", 1000)
     if nshots == "none":
@@ -110,6 +127,9 @@ def build_client_config(run_config, partition_id):
         readout_base=run_config["base-readout"],
         partition_id=partition_id,
         scale=run_config["scale"],
+        server_round=server_round,
+        walk_sigma=run_config.get("walk-sigma", 0.0),
+        walk_seed=int(run_config.get("walk-seed", WALK_SEED)),
     )
     
     mitigation_config = None
@@ -118,7 +138,7 @@ def build_client_config(run_config, partition_id):
                            [readout_prob, 1 - readout_prob]])
         response_matrix = np.kron(single, single)
         mitigation_config = {
-            "threshold": run_config.get("cdr-threshold", 0.01),
+            "threshold": run_config.get("cdr-threshold", 0.1),
             "min_iterations": run_config.get("cdr-min-iterations", 500),
             "method": "CDR",
             "method_kwargs": {
@@ -134,31 +154,7 @@ def build_client_config(run_config, partition_id):
 # =====================================================================
 # Modello
 # =====================================================================
-"""
-class QMLModel(nn.Module):
-    def __init__(self, q_model, hybrid=False):
-        super().__init__()
-        self.q_model = q_model
-        self.hybrid = hybrid
 
-        if hybrid:
-            self.post_net = nn.Sequential(
-                nn.Linear(1, 4, dtype=torch.float64),
-                nn.Tanh(),
-                nn.Linear(4, 1, dtype=torch.float64),
-                nn.Sigmoid(),
-            )
-
-    def forward(self, x):
-        x = torch.tanh(x) * torch.tensor(np.pi, dtype=torch.float64)
-        x = torch.stack([self.q_model(xi).reshape(-1) for xi in x])
-        if self.hybrid:
-            x = x.double()
-            x = self.post_net(x)
-        else:
-            x = (x + 1) / 2
-        return torch.clamp(x, 1e-7, 1 - 1e-7)
-"""
 HIDDEN_HYBRID = 6
 HIDDEN_CLASSICAL = 9
 
@@ -203,10 +199,11 @@ class QMLModel(nn.Module):
         return torch.clamp(x, 1e-7, 1 - 1e-7)
 
 
-def create_model(model_type="quantum", noise_model=None, nshots=None, mitigation_config=None):
+def create_model(model_type="quantum", noise_model=None, nshots=None, mitigation_config=None, hidden_classical=None):
 
     if model_type == "classical":
-        return ClassicalModel(hidden=HIDDEN_CLASSICAL)
+        h = hidden_classical if hidden_classical is not None else HIDDEN_CLASSICAL
+        return ClassicalModel(hidden=h)
 
     # quantum o hybrid
     encoding = PhaseEncoding(nqubits=NQUBITS)
@@ -373,6 +370,11 @@ def get_partition_id(msg, context):
         return config_record["partition_id"]
     return context.node_config.get("partition-id", 0)
 
+def get_server_round(msg, context):
+    config_record = msg.content.get("config")
+    if config_record and "server_round" in config_record:
+        return int(config_record["server_round"])
+    return 0
 
 def load_data_client(partition_id, ndata=500, iid=True, num_partitions=5, alpha=0.25, seed=42, client_eval=False, testing=True):
     

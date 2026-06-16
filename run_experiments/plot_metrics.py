@@ -587,12 +587,15 @@ def plot_centralized_weight_distances(base_dir, noise_levels, seeds=range(1, 8),
 
 def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, client_id=0, weights_path=None,
                        n_training_samples=120, nshots_cdr=30000, cdr_seed=40,
-                       nshots_model=1000, save_path=None, title=None, ax=None):
+                       nshots_model=1000, seed=None, save_path=None, title=None, ax=None, x_input=None, plot=True):
     """Scatterplot dei training points CDR (noisy vs noise-free) con retta di regressione.
 
     Se ax è passato, disegna su quell'asse (per subplot). Altrimenti crea una figura nuova.
+    Se seed è passato, inizializza i pesi del modello con quel seed.
     """
-    from qibo_qfl_pt.task import create_model, build_noise_model, set_weights
+    from qibo_qfl_pt.task import create_model, build_noise_model, set_weights, set_seed
+    if seed is not None:
+        set_seed(seed)
 
     noise_model, readout_prob = build_noise_model(
         pauli_base=pauli_base, readout_base=readout_base, partition_id=client_id, scale=scale,
@@ -616,17 +619,21 @@ def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, client_id=0, weigh
         set_weights(model, w)
 
     import torch
-    x = torch.tensor([[0.5, 0.3]], dtype=torch.float64)
+    if x_input is None:
+        x_input = [[0.5, 0.3]]
+    x = torch.tensor(x_input, dtype=torch.float64)         # <-- input parametrico
     with torch.no_grad():
         model(x)
 
     mitigator = model.q_model.decoding.mitigator
     train_data = mitigator._training_data
     popt = mitigator._mitigation_map_popt
-
     noisy = np.array(train_data["noisy"])
     noisefree = np.array(train_data["noise-free"])
     a, b = float(popt[0]), float(popt[1])
+
+    if not plot:                                           # <-- solo numeri, niente figura
+        return noisy, noisefree, a, b
 
     if title is None:
         title = f"CDR noise map (p={pauli_base})"
@@ -635,14 +642,19 @@ def plot_cdr_noise_map(pauli_base, readout_base, scale=0.002, client_id=0, weigh
     if own_fig:
         fig, ax = plt.subplots(figsize=(7, 6))
 
+    is_subplot = not own_fig
+    fs_label = 10 if is_subplot else 14
+    fs_title = 12 if is_subplot else 16
+    fs_legend = 8 if is_subplot else 12
+
     ax.scatter(noisy, noisefree, color="blue", alpha=0.5, s=20, label="Training points")
     x_fit = np.linspace(noisy.min(), noisy.max(), 100)
     ax.plot(x_fit, a * x_fit + b, color="red", linewidth=2,
             label=f"Fit: y = {a:.3f}x + {b:.3f}")
-    ax.set_xlabel("Noisy expectation value", fontsize=14)
-    ax.set_ylabel("Noise-free expectation value", fontsize=14)
-    ax.set_title(title, fontsize=16, fontweight="bold")
-    ax.legend(fontsize=12)
+    ax.set_xlabel("Noisy exp. value", fontsize=fs_label)
+    ax.set_ylabel("Noise-free exp. value", fontsize=fs_label)
+    ax.set_title(title, fontsize=fs_title, fontweight="bold")
+    ax.legend(fontsize=fs_legend)
     ax.grid(True, alpha=0.3)
 
     if own_fig:
@@ -905,19 +917,194 @@ def plot_comparison(distribution="iid", with_centralized=True):
         title=f"Strategies comparison {distribution} (noiseless)",
     )
 
+import json
+import argparse
+import numpy as np
+import matplotlib.pyplot as plt
+ 
+ 
+# ---------- lettura ----------
+ 
+def load_rounds(json_path):
+    return json.load(open(json_path))["rounds"]
+ 
+ 
+def collect_last_per_client(rounds):
+    """{client: (round, a, b, noisy, noisefree)} = ultimo round in cui il client appare."""
+    last = {}
+    for r in rounds:
+        rn = r.get("round")
+        for e in r.get("cdr_per_client", []) or []:
+            cid = e.get("client")
+            if cid is None or cid < 0:
+                continue
+            last[cid] = (
+                rn, float(e["a"]), float(e["b"]),
+                np.array(e.get("noisy", []), dtype=float),
+                np.array(e.get("noisefree", []), dtype=float),
+            )
+    return last
+ 
+ 
+def collect_series_per_client(rounds):
+    """{client: {'round':[...], 'a':[...], 'b':[...]}} ordinato per round."""
+    series = {}
+    for r in rounds:
+        rn = r.get("round")
+        for e in r.get("cdr_per_client", []) or []:
+            cid = e.get("client")
+            if cid is None or cid < 0:
+                continue
+            s = series.setdefault(cid, {"round": [], "a": [], "b": []})
+            s["round"].append(rn)
+            s["a"].append(float(e["a"]))
+            s["b"].append(float(e["b"]))
+    for cid in series:  # ordina per round
+        order = np.argsort(series[cid]["round"])
+        for k in ("round", "a", "b"):
+            series[cid][k] = list(np.array(series[cid][k])[order])
+    return series
+ 
+ 
+# ---------- figura 1: scatter + retta ----------
+ 
+def plot_maps_grid(rounds, save_path=None, title=""):
+    last = collect_last_per_client(rounds)
+    clients = sorted(last)
+    n = len(clients); ncols = 3; nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 5 * nrows),
+                             constrained_layout=True)
+    axes = np.atleast_1d(axes).flatten()
+ 
+    for ax, cid in zip(axes, clients):
+        _, a, b, noisy, noisefree = last[cid]
+        if noisy.size:
+            ax.scatter(noisy, noisefree, s=18, alpha=0.6, label="training points")
+            x0, x1 = noisy.min(), noisy.max()
+            # R^2 della retta a*x+b sui punti reali
+            y_pred = a * noisy + b
+            ss_res = np.sum((noisefree - y_pred) ** 2)
+            ss_tot = np.sum((noisefree - noisefree.mean()) ** 2)
+            r2 = 1 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+        else:
+            x0, x1 = -1.0, 1.0
+            r2 = float("nan")
+        xs = np.linspace(x0, x1, 100)
+        sign = "+" if b >= 0 else "-"
+        fit_label = f"y = {a:.3f}x {sign} {abs(b):.3f}\n$R^2$ = {r2:.4f}"
+        ax.plot(xs, a * xs + b, "r-", lw=2, label=fit_label)
+        ax.set_title(f"Client {cid}", fontweight="bold")
+        ax.set_xlabel("noisy expectation"); ax.set_ylabel("noise-free expectation")
+        ax.grid(alpha=0.3); ax.legend(fontsize=8)
+    for ax in axes[n:]:
+        ax.set_visible(False)
+    fig.suptitle(f"CDR noise map per client{title}", fontsize=16, fontweight="bold")
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight"); print(f"salvato: {save_path}")
+ 
+ 
+# ---------- figura 2: a e b vs round ----------
+ 
+def plot_ab_vs_round(rounds, save_path=None, title=""):
+    series = collect_series_per_client(rounds)
+    clients = sorted(series)
+    n = len(clients); ncols = 3; nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4.5 * nrows),
+                             constrained_layout=True)
+    axes = np.atleast_1d(axes).flatten()
+ 
+    for ax, cid in zip(axes, clients):
+        s = series[cid]
+        l1, = ax.plot(s["round"], s["a"], "o-", color="tab:blue", label="a (slope)")
+        ax.set_xlabel("round"); ax.set_ylabel("a (slope)", color="tab:blue")
+        ax.tick_params(axis="y", labelcolor="tab:blue")
+        ax.grid(alpha=0.3)
+        ax2 = ax.twinx()
+        l2, = ax2.plot(s["round"], s["b"], "s--", color="tab:orange", label="b (offset)")
+        ax2.set_ylabel("b (offset)", color="tab:orange")
+        ax2.tick_params(axis="y", labelcolor="tab:orange")
+        ax.set_title(f"Client {cid}", fontweight="bold")
+        ax.legend(handles=[l1, l2], fontsize=8, loc="best")
+    for ax in axes[n:]:
+        ax.set_visible(False)
+    fig.suptitle(f"Andamento (a, b) per client vs round {title}", fontsize=16, fontweight="bold")
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight"); print(f"salvato: {save_path}")
+ 
+def collect_train_series_per_client(rounds):
+    """{client: {'round':[...], 'a':[...], 'b':[...], 'n_maps':[...]}} dalla mappa
+    realmente usata in training (cdr_train_per_client)."""
+    series = {}
+    for r in rounds:
+        rn = r.get("round")
+        for e in r.get("cdr_train_per_client", []) or []:
+            cid = e.get("client")
+            if cid is None or cid < 0:
+                continue
+            s = series.setdefault(cid, {"round": [], "a": [], "b": [], "n_maps": []})
+            s["round"].append(rn)
+            s["a"].append(float(e["a"]))
+            s["b"].append(float(e["b"]))
+            s["n_maps"].append(int(e.get("n_maps", -1)))
+    for cid in series:
+        order = np.argsort(series[cid]["round"])
+        for k in ("round", "a", "b", "n_maps"):
+            series[cid][k] = list(np.array(series[cid][k])[order])
+    return series
+ 
+
+ 
+def plot_train_vs_eval_a(rounds, save_path=None, title=""):
+    """Per ogni client: slope 'a' usata in TRAINING vs 'a' ricostruita in EVAL.
+    Il gap che si allarga = mappa stale (problema). Curve vicine = mappa allineata."""
+    eval_s = collect_series_per_client(rounds)        # cdr_per_client (eval)
+    train_s = collect_train_series_per_client(rounds)  # cdr_train_per_client (training)
+    clients = sorted(set(eval_s) | set(train_s))
+    n = len(clients); ncols = 3; nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4.5 * nrows),
+                             constrained_layout=True)
+    axes = np.atleast_1d(axes).flatten()
+ 
+    for ax, cid in zip(axes, clients):
+        if cid in train_s:
+            ax.plot(train_s[cid]["round"], train_s[cid]["a"], "o-",
+                    color="tab:red", label="a TRAINING (usata)")
+        if cid in eval_s:
+            ax.plot(eval_s[cid]["round"], eval_s[cid]["a"], "s--",
+                    color="tab:blue", label="a EVAL (ideale)")
+        ax.set_title(f"Client {cid}", fontweight="bold")
+        ax.set_xlabel("round"); ax.set_ylabel("a (slope)")
+        ax.grid(alpha=0.3); ax.legend(fontsize=8)
+    for ax in axes[n:]:
+        ax.set_visible(False)
+    fig.suptitle(f"Slope CDR: training (usata) vs eval (ideale) {title}",
+                 fontsize=16, fontweight="bold")
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight"); print(f"salvato: {save_path}")
+ 
+ 
+def plot_n_maps(rounds, save_path=None, title=""):
+    """Numero cumulato di ricalcoli della mappa (n_maps) vs round, per client."""
+    train_s = collect_train_series_per_client(rounds)
+    clients = sorted(train_s)
+    fig, ax = plt.subplots(figsize=(8, 5), constrained_layout=True)
+    for cid in clients:
+        ax.plot(train_s[cid]["round"], train_s[cid]["n_maps"], "o-", label=f"client {cid}")
+    ax.set_xlabel("round"); ax.set_ylabel("n_maps (ricalcoli cumulati)")
+    ax.grid(alpha=0.3); ax.legend(fontsize=8)
+    ax.set_title(f"Ricalcoli della noise map vs round {title}", fontweight="bold")
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight"); print(f"salvato: {save_path}")
+
 # =====================================================================
 
 if __name__ == "__main__":
-    folder_mit = "fedavg_mitigation_high_threshold"
     plot(
         scenarios={
-            "mitigated 0.005": "fedavg_mitigation_high_threshold",
-            "noisy 0.005": "fixed_training_set_results/noiseless_noisy_mit_fixed_results/federated/iid/fedavg/noisy/p0.005",
-            "noiseless": "fixed_training_set_results/noiseless_noisy_mit_fixed_results/federated/iid/fedavg/noiseless"
-            },
+            "thr=0.1": "mitigation_threshold_test/thr_0.1",
+            "thr=0.01": "mitigation_threshold_test/thr_0.01",
+        },
         source="eval_metrics_client",
         metrics=("loss",),
-        title="FedAvg mitigated (high threshold, p=0.005)",
-        save_path=f"{folder_mit}/fedavg_mitigated_high_threshold.png",
-        save_json=True,
+        title="FedAvg IID mitigated p=0.005 - threshold comparison",
     )

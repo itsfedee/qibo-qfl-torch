@@ -36,7 +36,7 @@ fraction-evaluate = 0.75
 min-available-clients = 2
 num-partitions = 5
 
-mode = "noiseless"
+mode = "noisy"
 
 n-train-data = 500
 n-eval-data = 200
@@ -46,18 +46,23 @@ base-readout = 0.005
 scale = 0.002
 
 alpha = 1.8
+walk-sigma=0.0001
 
 seed=2
 data-seed=2
 init-seed=2
 sampling-seed=2
+walk-seed=7
 seed-label = ""
+cdr-threshold = 0.01
+
 
 strategy = "FedAvg"
 eta = 0.1
 eta_l = 0.35
 mu = 0.05
 model-type = "quantum"
+hidden-classical = 9
 nshots = "none"
 save-path = "fedavg_test"
 save-weights = true

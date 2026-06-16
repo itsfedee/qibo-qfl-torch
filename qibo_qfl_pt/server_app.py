@@ -48,12 +48,16 @@ def main(grid: Grid, context: Context) -> None:
     base_readout = context.run_config.get("base-readout", 0.0)
     noise_scale = context.run_config.get("scale", 0.0)
 
+    walk_sigma = context.run_config.get("walk-sigma", 0.0)
+    walk_seed = int(context.run_config.get("walk-seed", 7))
+
     model_type = context.run_config.get("model-type", "quantum")
+    hidden_classical = int(context.run_config.get("hidden-classical", 9))
 
     set_seed(init_seed)
 
     # pesi iniziali
-    model = create_model(model_type=model_type)
+    model = create_model(model_type=model_type, hidden_classical=hidden_classical)
     arrays = ArrayRecord(get_weights(model))
     del model
 
@@ -72,10 +76,12 @@ def main(grid: Grid, context: Context) -> None:
     noise_info = None
     if mode != "noiseless":
         noise_info = {
-            "base_pauli": base_pauli,
-            "base_readout": base_readout,
-            "noise_scale": noise_scale,
-        }
+        "base_pauli": base_pauli,
+        "base_readout": base_readout,
+        "noise_scale": noise_scale,
+        "sigma_drift": walk_sigma,
+        "seed_walk": walk_seed if walk_sigma > 0 else None,
+    }
 
     seed_label = context.run_config.get("seed-label", "") or None
 
@@ -114,7 +120,7 @@ def main(grid: Grid, context: Context) -> None:
         """Evaluate on centralized validation or test set."""
         # con testing il seed è 40, con tuning è 41
         x_val, y_val = load_data_server(ndata=context.run_config["n-eval-data"], testing=testing)
-        model = create_model(model_type=model_type)
+        model = create_model(model_type=model_type, hidden_classical=hidden_classical)
         set_weights(model, arrays.to_numpy_ndarrays())
         loss, acc, f1 = evaluate_model(model, x_val, y_val)
         print(f"Server eval - Loss: {loss:.4f}, Accuracy: {acc:.4f}, F1: {f1:.4f}")
